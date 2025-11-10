@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}Carbon Dashboard{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="/static/css/main.css" rel="stylesheet">
+</head>
+<body>
+  <header class="navbar">
+    <a href="/" class="brand">CarbonOps</a>
+    <nav>
+      <a href="/dashboard">Dashboard</a>
+      <a href="/facilities">Facilities</a>
+      <a href="/activities/new">Log Activity</a>
+      <a href="/factors">Factors</a>
+      <a href="/reports">Reports</a>
+      <a href="/targets">Targets</a>
+      <a href="/forecast">Forecast</a>
+      <a href="/planner">Planner</a>
+      <a href="/files">Files</a>
+      <a href="/profile">Profile</a>
+      <a href="/logout">Logout</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="footer">
+    <small>&copy; {{ 2025 }} CarbonOps</small>
+  </footer>
+</body>
+</html>

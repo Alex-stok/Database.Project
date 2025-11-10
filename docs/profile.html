@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+{% block title %}Profile{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Profile</h1>
+
+<p id="msg" style="min-height:1.25rem;"></p>
+
+<!-- VIEW MODE (default) -->
+<section id="view-section">
+  <h3>User</h3>
+  <div class="form-grid">
+    <label>Email</label>
+    <div id="v_user_email" class="view-cell"></div>
+
+    <label>Full name</label>
+    <div id="v_user_full_name" class="view-cell"></div>
+
+    <label>Role</label>
+    <div id="v_user_role" class="view-cell"></div>
+  </div>
+
+  <h3 style="margin-top:1.5rem;">Organization</h3>
+  <div class="form-grid">
+    <label>Name</label>
+    <div id="v_org_name" class="view-cell"></div>
+
+    <label>Industry</label>
+    <div id="v_org_industry" class="view-cell"></div>
+
+    <label>Address</label>
+    <div id="v_org_address" class="view-cell"></div>
+
+    <label>Size</label>
+    <div id="v_org_size" class="view-cell"></div>
+  </div>
+
+  <div class="actions" style="margin-top:1rem;">
+    <button id="edit-btn" class="btn primary">Edit</button>
+  </div>
+</section>
+
+<!-- EDIT MODE (hidden initially) -->
+<section id="edit-section" style="display:none;">
+  <h3>Edit User</h3>
+  <form id="user-form" class="form-grid" onsubmit="return false;">
+    <label for="user_email">Email (read-only)</label>
+    <input id="user_email" type="email" readonly />
+
+    <label for="user_full_name">Full name</label>
+    <input id="user_full_name" type="text" />
+
+    <label for="user_role">Role (read-only)</label>
+    <input id="user_role" type="text" readonly />
+  </form>
+
+  <h3 style="margin-top:1.5rem;">Edit Organization</h3>
+  <form id="org-form" class="form-grid" onsubmit="return false;">
+    <label for="org_name">Name</label>
+    <input id="org_name" type="text" />
+
+    <label for="org_industry">Industry</label>
+    <input id="org_industry" type="text" />
+
+    <label for="org_address">Address</label>
+    <textarea id="org_address" rows="3"></textarea>
+
+    <label for="org_size">Size</label>
+    <input id="org_size" type="text" placeholder="e.g., 1-50, 51-200" />
+  </form>
+
+  <div class="actions" style="margin-top:1rem; gap:.5rem;">
+    <button id="save-btn" class="btn primary">Save</button>
+    <button id="cancel-btn" class="btn">Cancel</button>
+  </div>
+</section>
+
+<style>
+  .form-grid {
+    display:grid;
+    grid-template-columns: 180px 1fr;
+    gap:.5rem 1rem;
+    align-items:center;
+    max-width: 800px;
+  }
+  .form-grid input, .form-grid textarea, .view-cell {
+    width:100%;
+  }
+  .view-cell {
+    padding:.5rem .75rem;
+    background:#f7f7f9;
+    border:1px solid #e5e7eb;
+    border-radius:.5rem;
+    min-height:2.25rem;
+    display:flex;
+    align-items:center;
+    white-space:pre-wrap;
+  }
+  .actions .btn { padding:.5rem .9rem; border-radius:.5rem; border:1px solid #d1d5db; background:#fff; cursor:pointer; }
+  .actions .btn.primary { background:#2563eb; color:#fff; border-color:#2563eb; }
+</style>
+
+<script>
+(function(){
+  const token = localStorage.getItem('token') || '';
+
+  // View cells
+  const v = {
+    user_email:    document.getElementById('v_user_email'),
+    user_full:     document.getElementById('v_user_full_name'),
+    user_role:     document.getElementById('v_user_role'),
+    org_name:      document.getElementById('v_org_name'),
+    org_industry:  document.getElementById('v_org_industry'),
+    org_address:   document.getElementById('v_org_address'),
+    org_size:      document.getElementById('v_org_size'),
+  };
+
+  // Edit inputs (same IDs you already use)
+  const e_user_email    = document.getElementById('user_email');
+  const e_user_full     = document.getElementById('user_full_name');
+  const e_user_role     = document.getElementById('user_role');
+
+  const e_org_name      = document.getElementById('org_name');
+  const e_org_industry  = document.getElementById('org_industry');
+  const e_org_address   = document.getElementById('org_address');
+  const e_org_size      = document.getElementById('org_size');
+
+  const viewSection  = document.getElementById('view-section');
+  const editSection  = document.getElementById('edit-section');
+  const editBtn      = document.getElementById('edit-btn');
+  const saveBtn      = document.getElementById('save-btn');
+  const cancelBtn    = document.getElementById('cancel-btn');
+
+  const msgEl = document.getElementById('msg');
+  const msg = (t, ok=true) => { msgEl.textContent = t; msgEl.style.color = ok ? 'green' : 'crimson'; };
+
+  let lastSnapshot = null; // used for cancel
+
+  function toView(user, organization) {
+    v.user_email.textContent = user?.email ?? '';
+    v.user_full.textContent  = user?.full_name ?? '';
+    v.user_role.textContent  = user?.role ?? '';
+
+    v.org_name.textContent     = organization?.name ?? '';
+    v.org_industry.textContent = organization?.industry ?? '';
+    v.org_address.textContent  = organization?.address ?? '';
+    v.org_size.textContent     = organization?.size ?? '';
+  }
+
+  function toEdit(user, organization) {
+    e_user_email.value = user?.email ?? '';
+    e_user_full.value  = user?.full_name ?? '';
+    e_user_role.value  = user?.role ?? '';
+
+    e_org_name.value     = organization?.name ?? '';
+    e_org_industry.value = organization?.industry ?? '';
+    e_org_address.value  = organization?.address ?? '';
+    e_org_size.value     = organization?.size ?? '';
+  }
+
+  async function loadMe() {
+    try {
+      const r = await fetch('/api/profile/me', { headers: { 'Authorization': `Bearer ${token}` }});
+      if (!r.ok) { msg('Failed to load profile', false); return; }
+      const data = await r.json();
+      lastSnapshot = structuredClone(data);
+      toView(data.user, data.organization);
+      toEdit(data.user, data.organization);
+      editSection.style.display = 'none';
+      viewSection.style.display = '';
+    } catch (e) {
+      console.error(e);
+      msg('Error loading profile', false);
+    }
+  }
+
+  function enterEdit() {
+    // refresh edit fields from the last loaded snapshot
+    if (lastSnapshot) toEdit(lastSnapshot.user, lastSnapshot.organization);
+    viewSection.style.display = 'none';
+    editSection.style.display = '';
+  }
+
+  function cancelEdit() {
+    // revert edit fields and go back to view
+    if (lastSnapshot) {
+      toEdit(lastSnapshot.user, lastSnapshot.organization);
+      toView(lastSnapshot.user, lastSnapshot.organization);
+    }
+    editSection.style.display = 'none';
+    viewSection.style.display = '';
+    msg('');
+  }
+
+  async function saveMe(e) {
+    e.preventDefault();
+    try {
+      const payload = {
+        full_name: (e_user_full?.value || '').trim(),
+        org_name: (e_org_name?.value || '').trim(),
+        org_industry: (e_org_industry?.value || '').trim(),
+        org_address: (e_org_address?.value || '').trim(),
+        org_size: (e_org_size?.value || '').trim()
+      };
+      const r = await fetch('/api/profile/me', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(payload)
+      });
+      if (!r.ok) { msg('Save failed', false); return; }
+      msg('Saved');
+      await loadMe(); // reload and return to view mode
+    } catch (e) {
+      console.error(e);
+      msg('Error saving', false);
+    }
+  }
+
+  editBtn?.addEventListener('click', enterEdit);
+  cancelBtn?.addEventListener('click', cancelEdit);
+  saveBtn?.addEventListener('click', saveMe);
+
+  loadMe();
+})();
+</script>
+{% endblock %}

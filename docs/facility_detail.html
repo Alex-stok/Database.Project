@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Page Title Here{% endblock %}
+{% block content %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Facility Detail</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/static/css/main.css" />
+</head>
+<body>
+  <header class="site-header">
+    <nav class="nav">
+      <a href="/dashboard">Dashboard</a>
+      <a class="active" href="/facilities">Facilities</a>
+      <a href="/factors">Emission Factors</a>
+      <a href="/uploads">Uploads</a>
+      <a href="/logout" id="logout-link">Logout</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <h1>Facility</h1>
+    <section class="card">
+      <h2 id="fac-name">Facility: …</h2>
+      <p id="fac-loc">Location: …</p>
+      <p id="fac-id">ID: …</p>
+      <p id="fac-grid">Grid Region: …</p>
+    </section>
+
+    <section class="card">
+      <h2>Quick Metrics (manual entry)</h2>
+      <p>Enter activity values with units so they can be logged as Scope 1/2 activities later.</p>
+      <form id="quick-metrics-form" class="grid-2">
+        <label>
+          Monthly Electricity (kWh)
+          <input type="number" step="0.01" name="kwh" placeholder="kWh" />
+        </label>
+        <label>
+          Natural Gas (therms)
+          <input type="number" step="0.01" name="therms" placeholder="therms" />
+        </label>
+        <label>
+          Diesel (gallons)
+          <input type="number" step="0.01" name="diesel_gal" placeholder="gal" />
+        </label>
+        <label>
+          Water (m³)
+          <input type="number" step="0.01" name="water_m3" placeholder="m³" />
+        </label>
+        <div>
+          <button type="submit">Save Metrics</button>
+        </div>
+      </form>
+      <small>Units: electricity=kWh, gas=therms, diesel=gallons, water=cubic meters.</small>
+    </section>
+
+    <section class="card">
+      <h2>Recent Activity (placeholder)</h2>
+      <div id="recent-activity">No entries yet.</div>
+    </section>
+  </main>
+
+  <script>
+  (function () {
+    // Prefer the templated id if we passed it from main.py, else fall back to parsing the URL.
+    const FACILITY_ID = (typeof window.FACILITY_ID !== "undefined" && window.FACILITY_ID) ||
+                        window.location.pathname.split("/").pop();
+
+    const nameEl = document.getElementById("name");
+    const locationEl = document.getElementById("location");
+    const gridEl = document.getElementById("grid_region_code");
+    const msgEl = document.getElementById("message");
+
+    function setMsg(text, ok = true) {
+      if (!msgEl) return;
+      msgEl.textContent = text;
+      msgEl.style.color = ok ? "green" : "crimson";
+    }
+
+    async function loadFacility() {
+      try {
+        const resp = await fetch(`/api/facilities/${FACILITY_ID}`, {
+          credentials: "same-origin",
+        });
+        if (!resp.ok) {
+          setMsg("Failed to load facility.", false);
+          return;
+        }
+        const data = await resp.json();
+        nameEl.value = data.name ?? "";
+        locationEl.value = data.location ?? "";
+        gridEl.value = data.grid_region_code ?? "";
+      } catch (err) {
+        console.error(err);
+        setMsg("Error loading facility.", false);
+      }
+    }
+
+    async function saveFacility(e) {
+      e.preventDefault();
+      try {
+        const payload = {
+          name: nameEl.value.trim(),
+          location: locationEl.value.trim(),
+          grid_region_code: gridEl.value.trim(),
+        };
+        const resp = await fetch(`/api/facilities/${FACILITY_ID}`, {
+          method: "PUT",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!resp.ok) {
+          const t = await resp.text();
+          setMsg(`Save failed: ${t}`, false);
+          return;
+        }
+        setMsg("Saved.");
+      } catch (err) {
+        console.error(err);
+        setMsg("Error saving.", false);
+      }
+    }
+
+    async function deleteFacility() {
+      if (!confirm("Delete this facility?")) return;
+      try {
+        const resp = await fetch(`/api/facilities/${FACILITY_ID}`, {
+          method: "DELETE",
+          credentials: "same-origin",
+        });
+        if (!resp.ok) {
+          const t = await resp.text();
+          setMsg(`Delete failed: ${t}`, false);
+          return;
+        }
+        // Redirect to the page route, not the old /api/page path
+        window.location.href = "/facilities";
+      } catch (err) {
+        console.error(err);
+        setMsg("Error deleting.", false);
+      }
+    }
+
+    document.getElementById("facility-form").addEventListener("submit", saveFacility);
+    document.getElementById("delete-btn").addEventListener("click", deleteFacility);
+
+    loadFacility();
+  })();
+</script>
+</body>
+</html>
+{% endblock %}

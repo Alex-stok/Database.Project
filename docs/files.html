@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Files{% endblock %}
+{% block content %}
+<h1 class="page-title">Files</h1>
+
+<div class="card">
+  <form id="upload-form" class="form-grid">
+    <label>Purpose
+      <select id="purpose">
+        <option value="energy">Energy (bills, AMI CSVs)</option>
+        <option value="fuel">Fuel logs</option>
+        <option value="freight">Freight/shipping</option>
+        <option value="materials">Materials/production</option>
+        <option value="other">Other</option>
+      </select>
+    </label>
+    <label>File
+      <input id="file" type="file" />
+    </label>
+    <button class="btn" id="upload-btn" type="submit">Upload</button>
+    <span id="msg" class="muted"></span>
+  </form>
+</div>
+
+<div class="card" style="margin-top:1rem;">
+  <h3>Uploaded Files</h3>
+  <table class="tbl" id="files-table">
+    <thead>
+      <tr>
+        <th>When</th>
+        <th>Purpose</th>
+        <th>Name</th>
+        <th>Type</th>
+        <th style="width:90px;"></th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<script>
+(function () {
+  const token = localStorage.getItem('token') || '';
+  const form = document.getElementById('upload-form');
+  const purpose = document.getElementById('purpose');
+  const file = document.getElementById('file');
+  const msg = document.getElementById('msg');
+  const tbody = document.querySelector('#files-table tbody');
+
+  function setMsg(t, ok=true){ msg.textContent=t; msg.style.color=ok?'green':'crimson'; }
+
+  async function loadList() {
+    const resp = await fetch('/api/files/list', { headers: { 'Authorization':'Bearer '+token }});
+    if (!resp.ok) return;
+    const data = await resp.json();
+    tbody.innerHTML = '';
+    for (const item of (data.items || [])) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${item.uploaded_at ? new Date(item.uploaded_at).toLocaleString() : ''}</td>
+        <td>${item.purpose || ''}</td>
+        <td>${item.original_name || ''}</td>
+        <td>${item.content_type || ''}</td>
+        <td><button data-id="${item.file_id}" class="btn btn-danger btn-del">Delete</button></td>
+      `;
+      tbody.appendChild(tr);
+    }
+    tbody.querySelectorAll('.btn-del').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const id = e.target.getAttribute('data-id');
+        if (!confirm('Delete this file?')) return;
+        const r = await fetch('/api/files/' + id, { method:'DELETE', headers: { 'Authorization':'Bearer '+token }});
+        if (r.ok) { loadList(); } else { setMsg('Delete failed', false); }
+      });
+    });
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!file.files.length) { setMsg('Pick a file.', false); return; }
+    const fd = new FormData();
+    fd.append('purpose', purpose.value);
+    fd.append('file', file.files[0]);
+    const resp = await fetch('/api/files/upload', {
+      method: 'POST',
+      headers: { 'Authorization':'Bearer '+token },
+      body: fd
+    });
+    if (!resp.ok) { setMsg('Upload failed', false); return; }
+    setMsg('Uploaded.');
+    form.reset();
+    loadList();
+  });
+
+  loadList();
+})();
+</script>
+{% endblock %}
