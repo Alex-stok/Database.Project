@@ -19,25 +19,23 @@ if not DATABASE_URL:
 # 2) Ensure the database exists (create if missing)
 url = make_url(DATABASE_URL)
 
-# connect to server without selecting a database
-server_url = url.set(database=None)          # works for mysql+mysqlconnector
-# server_url = url.set(database="mysql")     # alternative if your server forbids no-DB connections
+# Single engine, using whatever DATABASE_URL points to (Render Postgres in production)
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+    future=True,
+)
 
-_tmp_engine = create_engine(server_url, pool_pre_ping=True, future=True)
-with _tmp_engine.connect() as conn:
-    conn.execute(text(
-        f"CREATE DATABASE IF NOT EXISTS `{url.database}` "
-        "CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
-    ))
-    conn.commit()
-_tmp_engine.dispose()
+SessionLocal = sessionmaker(
+    bind=engine,
+    autoflush=False,
+    autocommit=False,
+    future=True,
+)
 
-# 3) Normal engine/session/Base for your app
-engine = create_engine(DATABASE_URL, pool_pre_ping=True, future=True)
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 Base = declarative_base()
 
-# 4) Dependency for routes
+
 def get_db():
     db = SessionLocal()
     try:
