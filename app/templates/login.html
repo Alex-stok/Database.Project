@@ -1,0 +1,40 @@
+
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Login</title>
+  <link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body>
+  <h2>Login</h2>
+  <form id="loginForm">
+    <label>Email <input type="email" name="email" required></label>
+    <label>Password <input type="password" name="password" required></label>
+    <button type="submit">Login</button>
+  </form>
+
+  <script>
+  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const params = new URLSearchParams();
+    params.append('email', fd.get('email'));
+    params.append('password', fd.get('password'));
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: {'Content-Type':'application/x-www-form-urlencoded'},
+      body: params.toString()
+    });
+    if (!res.ok) {
+      const msg = await res.json();
+      alert('Login failed: ' + (msg.detail || res.status));
+      return;
+    }
+    const data = await res.json();
+    localStorage.setItem('token', data.access_token);
+    window.location.href = '/dashboard';
+  });
+  </script>
+</body>
+</html>

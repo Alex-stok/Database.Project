@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1 class="page-title">Dashboard</h1>
+
+<section class="grid">
+  <a class="card" href="/facilities">
+    <h3>Facilities</h3>
+    <p>Define sites, locations, and grid regions.</p>
+  </a>
+
+  <a class="card" href="/activities/new">
+    <h3>Log Activity</h3>
+    <p>Enter energy, fuel, shipping, or process data (kWh, therms, gal, ton-mile, kg).</p>
+  </a>
+
+  <a class="card" href="/factors">
+    <h3>Emission Factors</h3>
+    <p>Browse factor values and sources; import CSVs.</p>
+  </a>
+
+  <a class="card" href="/reports">
+    <h3>Reports</h3>
+    <p>Scope 1/2/3 summaries by month, year, and facility.</p>
+  </a>
+
+  <a class="card" href="/targets">
+    <h3>Targets</h3>
+    <p>Set baseline, reduction %, and target year.</p>
+  </a>
+
+  <a class="card" href="/forecast">
+    <h3>Forecast</h3>
+    <p>Project emissions under growth and renewable-share scenarios.</p>
+  </a>
+
+  <a class="card" href="/planner">
+    <h3>Reduction Planner</h3>
+    <p>Estimate impact of concrete actions (LED, solar %, fleet mix).</p>
+  </a>
+
+  <a class="card" href="/files">
+    <h3>Files</h3>
+    <p>Upload CSVs for energy, fuel, or freight.</p>
+  </a>
+
+  <a class="card" href="/profile">
+    <h3>Profile</h3>
+    <p>Profile information</p>
+  </a>
+
+</section>
+
+{% endblock %}

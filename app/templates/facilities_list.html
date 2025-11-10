@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}Facilities{% endblock %}
+{% block content %}
+<main class="container">
+  <h1>Facilities</h1>
+
+  <!-- Create form -->
+  <section class="card">
+    <h2>Add Facility</h2>
+    <form id="create-form">
+      <div class="grid-2">
+        <label>
+          Name
+          <input id="name" name="name" type="text" required />
+        </label>
+        <label>
+          Grid Region Code (e.g., eGRID subregion)
+          <input id="grid_region_code" name="grid_region_code" type="text" />
+        </label>
+      </div>
+      <label>
+        Location (city, state or address)
+        <input id="location" name="location" type="text" />
+      </label>
+      <button type="submit">Create</button>
+      <span id="create-msg" style="margin-left:.5rem;"></span>
+    </form>
+  </section>
+
+  <!-- List -->
+  <section class="card">
+    <h2>All Facilities</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Location</th>
+            <th>Grid Region</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="facilities-tbody"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script>
+(function () {
+  const token = localStorage.getItem('token') || '';
+  const form = document.getElementById('create-form');
+  const nameEl = document.getElementById('name');
+  const locEl  = document.getElementById('location');
+  const gridEl = document.getElementById('grid_region_code');
+  const msgEl  = document.getElementById('create-msg');
+  const tbody  = document.getElementById('facilities-tbody');
+
+  function setMsg(t, ok = true) {
+    msgEl.textContent = t;
+    msgEl.style.color = ok ? 'green' : 'crimson';
+  }
+
+  async function loadFacilities() {
+    tbody.innerHTML = '';
+    try {
+      const resp = await fetch('/api/facilities', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!resp.ok) throw new Error('Failed to load facilities');
+      const items = await resp.json();
+      if (!items.length) {
+        tbody.innerHTML = '<tr><td colspan="5">No facilities yet.</td></tr>';
+        return;
+      }
+      for (const f of items) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${f.facility_id}</td>
+          <td>${f.name ?? ''}</td>
+          <td>${f.location ?? ''}</td>
+          <td>${f.grid_region_code ?? ''}</td>
+          <td><a class="btn" href="/facilities/${f.facility_id}">Open</a></td>
+        `;
+        tbody.appendChild(tr);
+      }
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="5">Error: ${String(err)}</td></tr>`;
+    }
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault(); // prevent GET /facilities?...
+    setMsg('');
+    const payload = {
+      name: (nameEl.value || '').trim(),
+      location: (locEl.value || '').trim(),
+      grid_region_code: (gridEl.value || '').trim()
+    };
+    if (!payload.name) { setMsg('Name is required', false); return; }
+
+    try {
+      const resp = await fetch('/api/facilities', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      if (!resp.ok) {
+        const t = await resp.text();
+        setMsg(`Create failed: ${t}`, false);
+        return;
+      }
+      // clear form and refresh list
+      nameEl.value = '';
+      locEl.value = '';
+      gridEl.value = '';
+      setMsg('Created.');
+      await loadFacilities();
+    } catch (err) {
+      setMsg('Error creating facility.', false);
+      console.error(err);
+    }
+  });
+
+  // initial load
+  loadFacilities();
+})();
+</script>
+{% endblock %}

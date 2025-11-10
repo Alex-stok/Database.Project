@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+{% block content %}
+<h1 class="page-title">Reports</h1>
+
+<section class="card">
+  <form id="filters">
+    <label>Scope
+      <select name="scope">
+        <option value="">All</option>
+        <option value="1">Scope 1 (Direct)</option>
+        <option value="2">Scope 2 (Purchased energy)</option>
+        <option value="3">Scope 3 (Supply chain)</option>
+      </select>
+    </label>
+    <label>Facility ID
+      <input type="number" name="facility_id" min="1" placeholder="e.g., 1">
+    </label>
+    <label>Period
+      <select name="period">
+        <option value="monthly">Monthly</option>
+        <option value="yearly">Yearly</option>
+      </select>
+    </label>
+    <button type="submit">Run</button>
+  </form>
+</section>
+
+<section class="card">
+  <h3>Summary</h3>
+  <pre id="output">Run a report to see results…</pre>
+</section>
+
+<script>
+  (function () {
+    const token = localStorage.getItem('token') || '';
+    const form = document.getElementById('filters');
+    const out = document.getElementById('output');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      const params = new URLSearchParams(fd);
+      const resp = await fetch('/api/reports/summary?' + params.toString(), {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      out.textContent = resp.ok ? JSON.stringify(await resp.json(), null, 2)
+                                : 'Error ' + resp.status + ': ' + await resp.text();
+    });
+  })();
+</script>
+{% endblock %}

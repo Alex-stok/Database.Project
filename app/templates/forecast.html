@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Forecast{% endblock %}
+{% block content %}
+<h1 class="page-title">Forecast</h1>
+
+<section class="card">
+  <form id="forecast-form">
+    <label>Annual growth (%)
+      <input type="number" name="growth_pct" step="0.1" value="3">
+    </label>
+    <label>Renewable share (% of annual kWh)
+      <input type="number" name="renewable_share_pct" step="1" value="20">
+    </label>
+    <label>Years to project (years)
+      <input type="number" name="years" min="1" max="10" value="3">
+    </label>
+    <button type="submit">Run forecast</button>
+  </form>
+</section>
+
+<section class="card">
+  <h3>Projection (kg CO₂e)</h3>
+  <pre id="forecast-out">Submit to see results…</pre>
+</section>
+
+<script>
+  (function () {
+    const token = localStorage.getItem('token') || '';
+    const form = document.getElementById('forecast-form');
+    const out = document.getElementById('forecast-out');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      const payload = Object.fromEntries(fd.entries());
+      const resp = await fetch('/api/forecast/run', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + token,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+      out.textContent = resp.ok ? JSON.stringify(await resp.json(), null, 2)
+                                : 'Error ' + resp.status + ': ' + await resp.text();
+    });
+  })();
+</script>
+{% endblock %}
