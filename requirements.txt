@@ -10,3 +10,4 @@ python-multipart==0.0.12
 pydantic[email]==2.12.3    
 typing-inspection==0.4.2
 typing-extensions==4.15.0
+psycopg2-binary
