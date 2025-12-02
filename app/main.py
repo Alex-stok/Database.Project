@@ -13,6 +13,9 @@ from .Routers import reports, forecast, planner
 from .seed import seed_all
 from .Routers import profile as profile_router
 from .Routers import files as files_router
+from .Routers import activities
+
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
@@ -108,3 +111,4 @@ app.include_router(planner.router)
 app.include_router(planner.pages)
 app.include_router(profile_router.router)
 app.include_router(files_router.router)
+app.include_router(activities.router)

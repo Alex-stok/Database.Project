@@ -1,4 +1,5 @@
 from pydantic import BaseModel, EmailStr
+from decimal import Decimal 
 from typing import Optional
 
 # Auth
@@ -22,4 +23,11 @@ class UserOut(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+class ActivityCreate(BaseModel):
+    facility_id: int
+    activity_type: str
+    quantity: float
+    unit: str
+    activity_date: date
 
