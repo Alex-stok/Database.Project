@@ -29,5 +29,5 @@ class ActivityCreate(BaseModel):
     activity_type: str
     quantity: float
     unit: str
-    activity_date: date
+    activity_date: Decimal
 
