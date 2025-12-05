@@ -67,6 +67,10 @@ def logout_page(request: Request):
 def profile_page(request: Request, user=Depends(get_current_user)):
     return templates.TemplateResponse("profile.html", {"request": request})
 
+@app.get("/facilities", response_class=HTMLResponse)
+def facilities_page(request: Request, user=Depends(get_current_user)):
+    return templates.TemplateResponse("facilities_list.html", {"request": request})
+
 
 @app.get("/files", response_class=HTMLResponse)
 def files_page(request: Request, user=Depends(get_current_user)):
