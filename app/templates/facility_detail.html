@@ -4,6 +4,7 @@
 <main class="container">
   <h1>Facility</h1>
 
+  <!-- Facility Info -->
   <section class="card">
     <h2 id="fac-name">Facility: …</h2>
     <p id="fac-loc">Location: …</p>
@@ -11,36 +12,14 @@
     <p id="fac-grid">Grid Region: …</p>
   </section>
 
+  <!-- Add Activity Button -->
   <section class="card">
-    <h2>Quick Metrics (manual entry)</h2>
-
-    <form id="quick-form" class="grid-2">
-      <label>
-        Monthly Electricity (kWh)
-        <input id="kwh" type="number" step="0.01" />
-      </label>
-
-      <label>
-        Natural Gas (therms)
-        <input id="therms" type="number" step="0.01" />
-      </label>
-
-      <label>
-        Diesel (gallons)
-        <input id="diesel_gal" type="number" step="0.01" />
-      </label>
-
-      <label>
-        Water (m³)
-        <input id="water_m3" type="number" step="0.01" />
-      </label>
-
-      <button type="submit">Save Metrics</button>
-    </form>
-
-    <p id="quick-msg"></p>
+    <a class="btn" href="/activities/new?facility_id={{ facility_id }}">
+      Add Activity
+    </a>
   </section>
 
+  <!-- Recent Activity Placeholder -->
   <section class="card">
     <h2>Recent Activity</h2>
     <div id="recent">No entries yet.</div>
@@ -52,54 +31,32 @@
     const facilityId = "{{ facility_id }}";
     const token = localStorage.getItem("token");
 
+    // Correct element references
     const facName = document.getElementById("fac-name");
     const facLoc = document.getElementById("fac-loc");
     const facId = document.getElementById("fac-id");
     const facGrid = document.getElementById("fac-grid");
 
+    // -----------------------------
+    // Load facility details
+    // -----------------------------
     async function loadFacility() {
         const resp = await fetch(`/api/facilities/${facilityId}`, {
-            headers: { Authorization: `Bearer ${token}` }
+            headers: { "Authorization": `Bearer ${token}` }
         });
 
-        if (!resp.ok) return;
-
-        const data = await resp.json();
-        nameEl.textContent = data.name;
-locationEl.textContent = "Location: " + (data.location || "");
-idEl.textContent = "ID: " + data.facility_id;
-gridEl.textContent = "Grid Region: " + (data.grid_region_code || "");
-    }
-
-    document.getElementById("quick-form").addEventListener("submit", async (e) => {
-        e.preventDefault();
-
-        const payload = {
-            kwh: Number(document.getElementById("kwh").value),
-            therms: Number(document.getElementById("therms").value),
-            diesel_gal: Number(document.getElementById("diesel_gal").value),
-            water_m3: Number(document.getElementById("water_m3").value)
-        };
-
-        const resp = await fetch(`/api/activities/quick/${facilityId}`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`
-            },
-            body: JSON.stringify(payload)
-        });
-
-        const msg = document.getElementById("quick-msg");
         if (!resp.ok) {
-            msg.textContent = "Save failed: " + await resp.text();
-            msg.style.color = "red";
+            facName.textContent = "Facility: (Error loading)";
             return;
         }
 
-        msg.textContent = "Saved successfully.";
-        msg.style.color = "green";
-    });
+        const data = await resp.json();
+
+        facName.textContent = "Facility: " + (data.name || "");
+        facLoc.textContent = "Location: " + (data.location || "");
+        facId.textContent = "ID: " + (data.facility_id || "");
+        facGrid.textContent = "Grid Region: " + (data.grid_region_code || "");
+    }
 
     loadFacility();
 })();

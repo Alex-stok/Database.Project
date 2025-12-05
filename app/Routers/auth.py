@@ -1,5 +1,5 @@
 # app/routers/auth.py
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request, HTMLResponse
 from sqlalchemy.orm import Session
 from fastapi import Form
 from fastapi.responses import JSONResponse
@@ -7,8 +7,22 @@ from ..database import get_db
 from ..models import User, Organization
 from ..schemas import UserCreate, UserOut, Token
 from ..security import hash_password, verify_password, create_access_token
+from fastapi.templating import Jinja2Templates
+
+
+templates = Jinja2Templates(directory="app/templates")
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+pages = APIRouter(tags=["auth:pages"])
+
+@pages.get("/login", response_class=HTMLResponse)
+def login_page(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request})
+
+@pages.get("/register", response_class=HTMLResponse)
+def register_page(request: Request):
+    return templates.TemplateResponse("register.html", {"request": request})
+
 
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 def register(payload: UserCreate, db: Session = Depends(get_db)):

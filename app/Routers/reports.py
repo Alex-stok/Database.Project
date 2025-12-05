@@ -25,7 +25,7 @@ def summary(
 ):
     q = (
         db.query(ActivityLog)
-        .join(Facility)
+        .join(Facility, ActivityLog.facility_id == Facility.facility_id)
         .filter(Facility.org_id == user.org_id)
     )
 

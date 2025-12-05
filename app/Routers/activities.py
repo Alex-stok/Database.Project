@@ -1,5 +1,5 @@
 # app/Routers/activities.py
-from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi import APIRouter, Depends, Request, HTTPException, Body
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from ..database import get_db
@@ -66,3 +66,15 @@ def create_activity(payload: dict, db: Session = Depends(get_db), user=Depends(g
     db.add(row)
     db.commit()
     return {"saved": True, "co2e_kg": float(co2e)}
+
+@router.get("/activity-types")
+def list_activity_types(db: Session = Depends(get_db)):
+    return db.query(ActivityType).all()
+
+@router.get("/units")
+def list_units(db: Session = Depends(get_db)):
+    return db.query(Unit).all()
+
+@router.post("/activities")
+def alias_create_activity(payload: dict = Body(...), db: Session = Depends(get_db)):
+    return create_activity(payload, db=db)
