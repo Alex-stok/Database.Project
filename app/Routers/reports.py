@@ -12,8 +12,11 @@ router = APIRouter(prefix="/api/reports", tags=["reports"])
 pages = APIRouter(tags=["reports:pages"])
 
 @pages.get("/reports", response_class=HTMLResponse)
-def reports_page(request: Request, user=Depends(get_current_user)):
-    return request.app.state.templates.TemplateResponse("reports.html", {"request": request})
+def reports_page(request: Request):
+    return request.app.state.templates.TemplateResponse(
+        "reports_overview.html",
+        {"request": request},
+    )
 
 @router.get("/summary")
 def summary(

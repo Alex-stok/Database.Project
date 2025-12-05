@@ -34,7 +34,7 @@
 
     // Planner settings are NOT part of backend yet,
     // so we simply fetch the impact report.
-    const resp = await fetch('/api/planner/impact', {
+    const resp = await fetch('/planner/evaluate', {
       headers: { 'Authorization': 'Bearer ' + token }
     });
 

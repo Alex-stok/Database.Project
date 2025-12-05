@@ -18,33 +18,32 @@ from app.Routers import (
 
 app = FastAPI()
 
-# ---------------------------
-# Static files
-# ---------------------------
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 app.state.templates = templates   # ← add this line
 
-
-# ---------------------------
-# ROOT → LANDING PAGE
-# ---------------------------
 @app.get("/", response_class=HTMLResponse)
 def login_page(request: Request):
     return templates.TemplateResponse("landing.html", {"request": request})  # ← changed file name
 
-
-# ---------------------------
-# DASHBOARD PAGE (REQUIRED)
-# ---------------------------
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard_page(request: Request):
     return templates.TemplateResponse("dashboard.html", {"request": request})
 
+@app.get("/files", response_class=HTMLResponse)
+def files_page(request: Request):
+    return templates.TemplateResponse("files.html", {"request": request})
+
+@app.get("/profile", response_class=HTMLResponse)
+def profile_page(request: Request):
+    return templates.TemplateResponse("profile.html", {"request": request})
+
+@app.get("/logout", response_class=HTMLResponse)
+def logout_page(request: Request):
+    return templates.TemplateResponse("logout.html", {"request": request})
 
 # =======================================================
-# PAGE ROUTERS (ALL FRONT-END HTML PAGES)
-# These MUST be included or nothing loads visually.
+# PAGE ROUTERS 
 # =======================================================
 
 app.include_router(auth.pages)          # login + logout pages

@@ -10,10 +10,11 @@ router = APIRouter(prefix="/api/factors", tags=["factors"])
 pages = APIRouter(tags=["factors:pages"])
 
 @pages.get("/factors", response_class=HTMLResponse)
-def factors_page(request: Request, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    rows = db.query(EmissionFactor).order_by(EmissionFactor.category, EmissionFactor.year.desc()).all()
-    return request.app.state.templates.TemplateResponse("factors.html", {"request": request, "rows": rows})
-
+def factors_page(request: Request):
+    return request.app.state.templates.TemplateResponse(
+        "factors_list.html",  
+        {"request": request},
+    )
 @router.get("")
 def get_factors(db: Session = Depends(get_db), user=Depends(get_current_user)):
     return db.query(EmissionFactor).all()
