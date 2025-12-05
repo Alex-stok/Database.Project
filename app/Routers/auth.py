@@ -1,8 +1,8 @@
 # app/routers/auth.py
-from fastapi import APIRouter, Depends, HTTPException, status, Request, HTMLResponse
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from fastapi import Form
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 from ..database import get_db
 from ..models import User, Organization
 from ..schemas import UserCreate, UserOut, Token
