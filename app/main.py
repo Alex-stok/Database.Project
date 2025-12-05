@@ -1,55 +1,57 @@
 # app/main.py
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi.templating import Jinja2Templates
 
-from .Routers import (
+# Import routers (matches your actual files)
+from app.Routers import (
     auth,
     facilities,
     activities,
     factors,
     reports,
-    targets,
     forecast,
-    planner
+    planner,
+    targets
 )
-from fastapi.templating import Jinja2Templates
-from fastapi.requests import Request
-
-templates = Jinja2Templates(directory="app/templates")
 
 app = FastAPI()
 
+# ---------------------------
+# Static files
+# ---------------------------
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+templates = Jinja2Templates(directory="app/templates")
+
+
+# ---------------------------
+# Root → login
+# ---------------------------
 @app.get("/")
 def index(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
 
-# ---------------------------------------------------
-# Static files (CSS, JS)
-# ---------------------------------------------------
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
-# ---------------------------------------------------
-# PUBLIC PAGE ROUTES (must be FIRST)
-# These serve HTML pages in /templates
-# ---------------------------------------------------
-app.include_router(auth.pages)
+# ---------------------------
+# PAGE ROUTERS ONLY FOR FILES THAT HAVE `pages`
+# ---------------------------
 app.include_router(facilities.pages)
 app.include_router(activities.pages)
 app.include_router(factors.pages)
 app.include_router(reports.pages)
-app.include_router(targets.pages)
 app.include_router(forecast.pages)
 app.include_router(planner.pages)
+# (targets has no pages router)
 
-# ---------------------------------------------------
-# API ROUTES (JSON only)
-# ---------------------------------------------------
+# ---------------------------
+# API ROUTERS
+# ---------------------------
 app.include_router(auth.router)
-app.include_router(facilities.api)
-app.include_router(activities.api)
-app.include_router(factors.api)
-app.include_router(reports.api)
-app.include_router(targets.api)
-app.include_router(forecast.api)
-app.include_router(planner.api)
+app.include_router(facilities.router)
+app.include_router(activities.router)
+app.include_router(factors.router)
+app.include_router(reports.router)
+app.include_router(forecast.router)
+app.include_router(planner.router)
+app.include_router(targets.router)
