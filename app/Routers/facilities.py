@@ -11,7 +11,7 @@ from ..security import get_current_user
 from ..models import Facility
 
 templates = Jinja2Templates(directory="app/templates")
-router = APIRouter(prefix="/api", tags=["facilities"])
+router = APIRouter(prefix="/api", tags=["facilities"], dependencies=[Depends(get_current_user)])
 pages = APIRouter(tags=["pages"])
 
 # ---------- Pydantic payloads ----------
