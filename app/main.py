@@ -23,14 +23,15 @@ app = FastAPI()
 # ---------------------------
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
+app.state.templates = templates   # ← add this line
 
 
 # ---------------------------
-# ROOT → LOGIN PAGE
+# ROOT → LANDING PAGE
 # ---------------------------
 @app.get("/", response_class=HTMLResponse)
 def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+    return templates.TemplateResponse("landing.html", {"request": request})  # ← changed file name
 
 
 # ---------------------------
