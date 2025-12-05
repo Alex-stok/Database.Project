@@ -2,10 +2,8 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.templating import Jinja2Templates
 
-# Routers
-from app.Routers import (
+from .Routers import (
     auth,
     facilities,
     activities,
@@ -13,26 +11,29 @@ from app.Routers import (
     reports,
     targets,
     forecast,
-    planner,
+    planner
 )
-
-app = FastAPI(title="CarbonOps Production")
-
-# Static
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+from fastapi.templating import Jinja2Templates
+from fastapi.requests import Request
 
 templates = Jinja2Templates(directory="app/templates")
 
-# CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app = FastAPI()
 
-# HTML Pages
+@app.get("/")
+def index(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request})
+
+# ---------------------------------------------------
+# Static files (CSS, JS)
+# ---------------------------------------------------
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+# ---------------------------------------------------
+# PUBLIC PAGE ROUTES (must be FIRST)
+# These serve HTML pages in /templates
+# ---------------------------------------------------
+app.include_router(auth.pages)
 app.include_router(facilities.pages)
 app.include_router(activities.pages)
 app.include_router(factors.pages)
@@ -41,16 +42,14 @@ app.include_router(targets.pages)
 app.include_router(forecast.pages)
 app.include_router(planner.pages)
 
-# API Routers
+# ---------------------------------------------------
+# API ROUTES (JSON only)
+# ---------------------------------------------------
 app.include_router(auth.router)
-app.include_router(facilities.router)
-app.include_router(activities.router)
-app.include_router(factors.router)
-app.include_router(reports.router)
-app.include_router(targets.router)
-app.include_router(forecast.router)
-app.include_router(planner.router)
-
-@app.get("/")
-def root():
-    return {"status": "ok"}
+app.include_router(facilities.api)
+app.include_router(activities.api)
+app.include_router(factors.api)
+app.include_router(reports.api)
+app.include_router(targets.api)
+app.include_router(forecast.api)
+app.include_router(planner.api)
