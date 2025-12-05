@@ -104,67 +104,6 @@ def factors_import_page(request: Request, user=Depends(get_current_user)):
 def activities_new_page(request: Request, user=Depends(get_current_user)):
     return templates.TemplateResponse("activities_new.html", {"request": request})
 
-
-# ---------- Facilities + Targets API (backed by DB, no static data) ----------
-
-@app.get("/api/facilities")
-def list_facilities(
-    db: Session = Depends(get_db),
-    user=Depends(get_current_user),
-):
-    return (
-        db.query(Facility)
-        .filter(Facility.org_id == user.org_id)
-        .order_by(Facility.facility_id)
-        .all()
-    )
-
-
-@app.post("/api/facilities")
-def create_facility(
-    payload: dict,
-    db: Session = Depends(get_db),
-    user=Depends(get_current_user),
-):
-    name = (payload.get("name") or "").strip()
-    if not name:
-        # optional: add validation if you want
-        # from fastapi import HTTPException
-        # raise HTTPException(status_code=400, detail="Name required")
-        pass
-
-    fac = Facility(
-        org_id=user.org_id,
-        name=name,
-        location=(payload.get("location") or "").strip() or None,
-        grid_region_code=(payload.get("grid_region_code") or "").strip() or None,
-    )
-    db.add(fac)
-    db.commit()
-    db.refresh(fac)
-    return fac
-
-
-@app.post("/api/targets")
-def create_target(
-    payload: dict,
-    db: Session = Depends(get_db),
-    user=Depends(get_current_user),
-):
-    t = Target(
-        org_id=user.org_id,
-        baseline_year=int(payload["baseline_year"]),
-        baseline_co2e_kg=None,
-        target_year=int(payload["target_year"]),
-        reduction_percent=Decimal(str(payload["reduction_percent"])),
-        created_by=user.user_id,
-    )
-    db.add(t)
-    db.commit()
-    db.refresh(t)
-    return t
-
-
 # ---------- Routers ----------
 
 app.include_router(auth_router.router)
@@ -173,14 +112,14 @@ app.include_router(auth_router.router)
 # because the /api/facilities endpoints are defined directly above.
 # (If facilities_router.router used to define /api/facilities, delete those
 # to avoid duplicates.)
-app.include_router(facilities_router.pages)
+app.include_router(facilities_router.router, prefix="/api")
 
 # factors_router.router should expose:
 #   GET  /api/factors
 #   POST /api/factors
 #   POST /api/factors/import
 # so we mount it with prefix="/api"
-app.include_router(factors_router.router, prefix="/api", tags=["factors"])
+app.include_router(factors_router.router, prefix="/api")
 
 app.include_router(reports.router)
 app.include_router(reports.pages)
@@ -193,4 +132,4 @@ app.include_router(planner.pages)
 
 app.include_router(profile_router.router)
 app.include_router(files_router.router)     # /api/files/... endpoints
-app.include_router(activities.router)       # /api/activities endpoints
+app.include_router(activities.router, prefix="/api")      # /api/activities endpoints
