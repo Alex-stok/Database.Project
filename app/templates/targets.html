@@ -23,12 +23,14 @@
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+
     const fd = new FormData(form);
     const payload = {
       baseline_year: Number(fd.get('baseline_year')),
       reduction_percent: Number(fd.get('target_percent')),
       target_year: Number(fd.get('target_year')),
     };
+
     const resp = await fetch('/api/targets', {
       method: 'POST',
       headers: {
@@ -37,15 +39,19 @@
       },
       body: JSON.stringify(payload)
     });
+
     if (!resp.ok) {
-      const t = await resp.text();
-      alert('Save failed: ' + t);
+      alert('Save failed: ' + await resp.text());
       return;
     }
-    alert('Target saved.');
+
+    const data = await resp.json();
+    alert("Target saved. Baseline = " + data.baseline_co2e_kg + " kg CO2e");
+
   });
 })();
 </script>
+
 
   </form>
 </body>

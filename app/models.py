@@ -8,7 +8,7 @@ from sqlalchemy.sql import func
 from .database import Base
 
 # -------------------------
-# Core (unchanged behavior)
+# Core
 # -------------------------
 class Organization(Base):
     __tablename__ = "organization"

@@ -68,7 +68,7 @@ def create_facility(
     db.refresh(fac)
     return fac
 
-@router.get("/{facility_id}")
+@router.get("/facilities/{id}")
 def get_facility(facility_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
     f = (
         db.query(Facility)
@@ -84,7 +84,9 @@ def get_facility(facility_id: int, db: Session = Depends(get_db), user=Depends(g
         "grid_region_code": f.grid_region_code,
     }
 
-@router.put("/{facility_id}")
+@router.delete("/facilities/{id}")
+
+@router.put("/facilities/{id}")
 def update_facility(facility_id: int, payload: dict, db: Session = Depends(get_db), user=Depends(get_current_user)):
     f = (
         db.query(Facility)
@@ -99,6 +101,7 @@ def update_facility(facility_id: int, payload: dict, db: Session = Depends(get_d
     db.commit()
     db.refresh(f)
     return {"ok": True}
+
 
 # ---------- HTML PAGES ----------
 pages = APIRouter(tags=["pages"])

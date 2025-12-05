@@ -39,6 +39,7 @@
     </form>
 
     <small>Units: electricity=kWh, gas=therms, diesel=gallons, water=cubic meters.</small>
+    <p id="metrics-msg" style="margin-top:.5rem;"></p>
   </section>
 
   <section class="card">
@@ -53,16 +54,25 @@
       (typeof window.FACILITY_ID !== "undefined" && window.FACILITY_ID) ||
       window.location.pathname.split("/").pop();
 
-  // Correct DOM references
+  const token = localStorage.getItem("token") || "";
+
   const nameEl = document.getElementById("fac-name");
   const locEl  = document.getElementById("fac-loc");
   const idEl   = document.getElementById("fac-id");
   const gridEl = document.getElementById("fac-grid");
+  const metricsForm = document.getElementById("quick-metrics-form");
+  const metricsMsg  = document.getElementById("metrics-msg");
+
+  function setMetricsMsg(text, ok = true) {
+    metricsMsg.textContent = text;
+    metricsMsg.style.color = ok ? "lightgreen" : "crimson";
+  }
 
   async function loadFacility() {
     try {
       const resp = await fetch(`/api/facilities/${FACILITY_ID}`, {
         credentials: "same-origin",
+        headers: token ? { "Authorization": `Bearer ${token}` } : {}
       });
       if (!resp.ok) {
         console.error("Failed to load facility");
@@ -70,7 +80,6 @@
       }
       const data = await resp.json();
 
-      // Display in TEXT, not .value
       nameEl.textContent = `Facility: ${data.name}`;
       locEl.textContent  = `Location: ${data.location ?? ""}`;
       idEl.textContent   = `ID: ${data.facility_id}`;
@@ -81,10 +90,46 @@
     }
   }
 
-  // Prevent page reload from metrics form
-  document.getElementById("quick-metrics-form").addEventListener("submit", (e) => {
+  metricsForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    alert("Metrics saved (placeholder, no backend yet)");
+
+    const formData = new FormData(metricsForm);
+    const payload = {
+      kwh:       formData.get("kwh")       ? Number(formData.get("kwh"))       : null,
+      therms:    formData.get("therms")    ? Number(formData.get("therms"))    : null,
+      diesel_gal:formData.get("diesel_gal")? Number(formData.get("diesel_gal")): null,
+      water_m3:  formData.get("water_m3")  ? Number(formData.get("water_m3"))  : null,
+    };
+
+    // if everything is empty, do nothing
+    if (!payload.kwh && !payload.therms && !payload.diesel_gal && !payload.water_m3) {
+      setMetricsMsg("No values entered.", false);
+      return;
+    }
+
+    try {
+      const resp = await fetch(`/api/activities/quick/${FACILITY_ID}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        },
+        credentials: "same-origin",
+        body: JSON.stringify(payload),
+      });
+
+      const text = await resp.text();
+
+      if (!resp.ok) {
+        setMetricsMsg(`Save failed: ${text}`, false);
+        return;
+      }
+
+      setMetricsMsg("Metrics saved and logged as activities.", true);
+    } catch (err) {
+      console.error(err);
+      setMetricsMsg("Error saving metrics.", false);
+    }
   });
 
   loadFacility();

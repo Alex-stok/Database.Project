@@ -45,18 +45,59 @@
     <button type="submit">Submit</button>
 
     <script>
-(function () {
+(async function () {
   const token = localStorage.getItem('token') || '';
   const form = document.getElementById('activityForm');
+
+  // Load selectable lists
+  const typesResp = await fetch('/api/activities/types', {
+    headers: { 'Authorization': 'Bearer ' + token }
+  });
+  const unitsResp = await fetch('/api/activities/units', {
+    headers: { 'Authorization': 'Bearer ' + token }
+  });
+  const facResp = await fetch('/api/facilities', {
+    headers: { 'Authorization': 'Bearer ' + token }
+  });
+
+  const types = typesResp.ok ? await typesResp.json() : [];
+  const units = unitsResp.ok ? await unitsResp.json() : [];
+  const facs  = facResp.ok ? await facResp.json()  : [];
+
+  // Populate selects
+  const typeSel = form.querySelector('select[name="activity_type"]');
+  const unitSel = form.querySelector('select[name="unit"]');
+  const facSel  = form.querySelector('input[name="facility_id"]');
+
+  typeSel.innerHTML = types.map(t =>
+    `<option value="${t.activity_type_id}">${t.label}</option>`
+  ).join("");
+
+  unitSel.innerHTML = units.map(u =>
+    `<option value="${u.unit_id}">${u.code}</option>`
+  ).join("");
+
+  // Optional: prefill facility ID dropdown
+  // Replace input with dropdown:
+  /*
+  facSel.outerHTML = `
+      <select name="facility_id">
+        ${facs.map(f => `<option value="${f.facility_id}">${f.name}</option>`).join("")}
+      </select>
+  `;
+  */
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(form);
-    const payload = Object.fromEntries(fd.entries());
 
-    // convert numeric fields
-    if (payload.quantity) payload.quantity = Number(payload.quantity);
-    if (payload.facility_id) payload.facility_id = Number(payload.facility_id);
+    const payload = {
+      activity_type_id: Number(fd.get("activity_type")),
+      unit_id: Number(fd.get("unit")),
+      quantity: Number(fd.get("quantity")),
+      facility_id: Number(fd.get("facility_id")),
+      activity_date: fd.get("activity_date")
+    };
 
     const resp = await fetch('/api/activities', {
       method: 'POST',
@@ -68,15 +109,16 @@
     });
 
     if (!resp.ok) {
-      const txt = await resp.text();
-      alert('Failed to save activity: ' + txt);
+      alert("Error: " + await resp.text());
       return;
     }
-    alert('Activity logged.');
+
+    alert("Activity logged.");
     form.reset();
   });
 })();
 </script>
+
 
   </form>
 </body>

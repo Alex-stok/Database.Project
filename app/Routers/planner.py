@@ -1,51 +1,94 @@
 # app/Routers/planner.py
-from fastapi import APIRouter, Depends
-from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
-from fastapi import Request
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from decimal import Decimal
+from collections import defaultdict
+
+from ..database import get_db
 from ..security import get_current_user
+from ..models import OrgAction, ActionLibrary, Facility, ActivityLog
 
 router = APIRouter(prefix="/api/planner", tags=["planner"])
-pages = APIRouter(tags=["planner:pages"])
 
-templates = Jinja2Templates(directory="app/templates")
 
-# -------- PAGE ROUTES (HTML) --------
-@pages.get("/planner", response_class=HTMLResponse)
-def planner_page(request: Request, user=Depends(get_current_user)):
-    return templates.TemplateResponse("planner.html", {"request": request})
+# ---------------------------------------------------------
+# Compute current org emissions
+# ---------------------------------------------------------
+def compute_current_emissions(db: Session, org_id: int) -> Decimal:
+    rows = (
+        db.query(ActivityLog)
+        .join(Facility, ActivityLog.facility_id == Facility.facility_id)
+        .filter(Facility.org_id == org_id)
+        .all()
+    )
 
-# -------- API ROUTES (JSON) --------
-@router.post("/evaluate")
-def evaluate_actions(payload: dict, user=Depends(get_current_user)):
-    """
-    payload actions (placeholders):
-      {
-        "led_retrofit_pct": 50,        # percent of facilities lighting converted
-        "solar_share_pct": 25,         # percent annual kWh from solar
-        "fleet_hybrid_pct": 30         # percent fleet moved to hybrid/EV
-      }
-    """
-    led = float(payload.get("led_retrofit_pct", 0))
-    solar = float(payload.get("solar_share_pct", 0))
-    fleet = float(payload.get("fleet_hybrid_pct", 0))
+    total = Decimal("0")
+    for r in rows:
+        if r.co2e_kg:
+            total += Decimal(str(r.co2e_kg))
 
-    # fake impact math; replace with real factors later
-    baseline = 12000.0
-    led_cut = baseline * (led / 100.0) * 0.12
-    solar_cut = baseline * (solar / 100.0) * 0.30
-    fleet_cut = baseline * (fleet / 100.0) * 0.15
+    return total
 
-    total_cut = led_cut + solar_cut + fleet_cut
-    projected = max(baseline - total_cut, 0)
+
+# ---------------------------------------------------------
+# Create an organization action
+# ---------------------------------------------------------
+@router.post("/action")
+def add_action(payload: dict,
+               db: Session = Depends(get_db),
+               user=Depends(get_current_user)):
+
+    action_id = payload.get("action_id")
+    lib = db.query(ActionLibrary).filter(ActionLibrary.action_id == action_id).first()
+    if not lib:
+        raise HTTPException(400, "Unknown action_id")
+
+    oa = OrgAction(
+        org_id=user.org_id,
+        action_id=action_id,
+        facility_id=payload.get("facility_id"),
+        custom_params=payload.get("custom_params") or {},
+        est_reduction_kg=None,
+        est_capex_usd=payload.get("capex"),
+        planned_year=payload.get("year"),
+        status="planned",
+    )
+
+    db.add(oa)
+    db.commit()
+    db.refresh(oa)
+
+    return {"org_action_id": oa.org_action_id}
+
+
+# ---------------------------------------------------------
+# Evaluate savings
+# ---------------------------------------------------------
+@router.get("/impact")
+def impact(db: Session = Depends(get_db), user=Depends(get_current_user)):
+
+    actions = db.query(OrgAction).filter(OrgAction.org_id == user.org_id).all()
+    baseline = compute_current_emissions(db, user.org_id)
+
+    total_reduction = Decimal("0")
+    breakdown = []
+
+    for a in actions:
+        pct = Decimal(str(a.action.expected_reduction_pct or 0)) / Decimal("100")
+        red = baseline * pct
+
+        breakdown.append({
+            "action": a.action.name,
+            "expected_pct": float(pct * 100),
+            "reduction_kg": float(red),
+        })
+
+        total_reduction += red
 
     return {
-        "baseline_kg_co2e": baseline,
-        "reductions": {
-            "led_retrofit": round(led_cut, 2),
-            "solar": round(solar_cut, 2),
-            "fleet": round(fleet_cut, 2)
-        },
-        "projected_kg_co2e": round(projected, 2),
-        "unit": "kg CO2e"
+        "baseline_emissions_kg": float(baseline),
+        "total_reduction_kg": float(total_reduction),
+        "projected_after_actions_kg": float(baseline - total_reduction),
+        "actions": breakdown,
     }

@@ -24,26 +24,50 @@
 </section>
 
 <script>
-  (function () {
-    const token = localStorage.getItem('token') || '';
-    const form = document.getElementById('forecast-form');
-    const out = document.getElementById('forecast-out');
+(function () {
+  const token = localStorage.getItem('token') || '';
+  const form = document.getElementById('forecast-form');
+  const out = document.getElementById('forecast-out');
 
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const fd = new FormData(form);
-      const payload = Object.fromEntries(fd.entries());
-      const resp = await fetch('/api/forecast/run', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + token,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
-      out.textContent = resp.ok ? JSON.stringify(await resp.json(), null, 2)
-                                : 'Error ' + resp.status + ': ' + await resp.text();
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const fd = new FormData(form);
+    const payload = {
+      name: "Auto scenario",
+      annual_growth_pct: Number(fd.get("growth_pct")),
+      renewable_share_pct: Number(fd.get("renewable_share_pct")),
+      start_year: new Date().getFullYear(),
+      end_year: new Date().getFullYear() + Number(fd.get("years"))
+    };
+
+    // 1) Create the scenario
+    const createResp = await fetch('/api/forecast/scenario', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
     });
-  })();
+
+    if (!createResp.ok) {
+      out.textContent = 'Error creating scenario: ' + await createResp.text();
+      return;
+    }
+
+    const scenario = await createResp.json();
+
+    // 2) Run / fetch scenario results
+    const runResp = await fetch(`/api/forecast/scenario/${scenario.scenario_id}`, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+
+    out.textContent = runResp.ok
+      ? JSON.stringify(await runResp.json(), null, 2)
+      : 'Error ' + runResp.status + ': ' + await runResp.text();
+  });
+})();
 </script>
+
 {% endblock %}
