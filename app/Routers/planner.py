@@ -1,94 +1,59 @@
 # app/Routers/planner.py
-
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from decimal import Decimal
-from collections import defaultdict
-
 from ..database import get_db
 from ..security import get_current_user
-from ..models import OrgAction, ActionLibrary, Facility, ActivityLog
+from ..models import ActionLibrary, OrgAction, Facility
 
 router = APIRouter(prefix="/api/planner", tags=["planner"])
+pages = APIRouter(tags=["planner:pages"])
 
+@pages.get("/planner", response_class=HTMLResponse)
+def planner_page(request: Request, user=Depends(get_current_user)):
+    return request.app.state.templates.TemplateResponse("planner.html", {"request": request})
 
-# ---------------------------------------------------------
-# Compute current org emissions
-# ---------------------------------------------------------
-def compute_current_emissions(db: Session, org_id: int) -> Decimal:
-    rows = (
-        db.query(ActivityLog)
-        .join(Facility, ActivityLog.facility_id == Facility.facility_id)
-        .filter(Facility.org_id == org_id)
-        .all()
+@router.get("/library")
+def get_library(db: Session = Depends(get_db)):
+    return db.query(ActionLibrary).all()
+
+@router.post("/library")
+def add_action(payload: dict, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    a = ActionLibrary(
+        code=payload["code"],
+        name=payload["name"],
+        description=payload.get("description"),
+        expected_reduction_pct=payload.get("expected_reduction_pct"),
+        default_capex_usd=payload.get("default_capex_usd"),
+        default_life_years=payload.get("default_life_years"),
     )
+    db.add(a)
+    db.commit()
+    db.refresh(a)
+    return {"created": True, "id": a.action_id}
 
-    total = Decimal("0")
-    for r in rows:
-        if r.co2e_kg:
-            total += Decimal(str(r.co2e_kg))
+@router.post("/apply")
+def apply_action(payload: dict, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    fac_id = payload.get("facility_id")
 
-    return total
+    if fac_id:
+        fac = db.query(Facility).filter(Facility.facility_id == fac_id, Facility.org_id == user.org_id).first()
+        if not fac:
+            raise HTTPException(403, "Invalid facility")
 
+    red_pct = Decimal(str(payload["estimated_reduction_pct"])) / Decimal("100")
+    capex = Decimal(str(payload.get("capex_usd", 0)))
 
-# ---------------------------------------------------------
-# Create an organization action
-# ---------------------------------------------------------
-@router.post("/action")
-def add_action(payload: dict,
-               db: Session = Depends(get_db),
-               user=Depends(get_current_user)):
-
-    action_id = payload.get("action_id")
-    lib = db.query(ActionLibrary).filter(ActionLibrary.action_id == action_id).first()
-    if not lib:
-        raise HTTPException(400, "Unknown action_id")
-
-    oa = OrgAction(
+    act = OrgAction(
         org_id=user.org_id,
-        action_id=action_id,
-        facility_id=payload.get("facility_id"),
-        custom_params=payload.get("custom_params") or {},
-        est_reduction_kg=None,
-        est_capex_usd=payload.get("capex"),
-        planned_year=payload.get("year"),
+        action_id=payload["action_id"],
+        facility_id=fac_id,
+        est_reduction_kg=payload.get("est_reduction_kg"),
+        est_capex_usd=capex,
+        planned_year=payload.get("planned_year"),
         status="planned",
     )
-
-    db.add(oa)
+    db.add(act)
     db.commit()
-    db.refresh(oa)
-
-    return {"org_action_id": oa.org_action_id}
-
-
-# ---------------------------------------------------------
-# Evaluate savings
-# ---------------------------------------------------------
-@router.get("/impact")
-def impact(db: Session = Depends(get_db), user=Depends(get_current_user)):
-
-    actions = db.query(OrgAction).filter(OrgAction.org_id == user.org_id).all()
-    baseline = compute_current_emissions(db, user.org_id)
-
-    total_reduction = Decimal("0")
-    breakdown = []
-
-    for a in actions:
-        pct = Decimal(str(a.action.expected_reduction_pct or 0)) / Decimal("100")
-        red = baseline * pct
-
-        breakdown.append({
-            "action": a.action.name,
-            "expected_pct": float(pct * 100),
-            "reduction_kg": float(red),
-        })
-
-        total_reduction += red
-
-    return {
-        "baseline_emissions_kg": float(baseline),
-        "total_reduction_kg": float(total_reduction),
-        "projected_after_actions_kg": float(baseline - total_reduction),
-        "actions": breakdown,
-    }
+    return {"applied": True}

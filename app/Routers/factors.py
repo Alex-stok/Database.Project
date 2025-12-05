@@ -1,97 +1,33 @@
 # app/Routers/factors.py
-
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
+from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
-import csv
-from decimal import Decimal
-
 from ..database import get_db
 from ..security import get_current_user
 from ..models import EmissionFactor
 
 router = APIRouter(prefix="/api/factors", tags=["factors"])
+pages = APIRouter(tags=["factors:pages"])
 
+@pages.get("/factors", response_class=HTMLResponse)
+def factors_page(request: Request, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    rows = db.query(EmissionFactor).order_by(EmissionFactor.category, EmissionFactor.year.desc()).all()
+    return request.app.state.templates.TemplateResponse("factors.html", {"request": request, "rows": rows})
 
-# ------------------------------------------------------------
-# GET list factors
-# ------------------------------------------------------------
 @router.get("")
-def list_factors(db: Session = Depends(get_db)):
-    rows = db.query(EmissionFactor).order_by(
-        EmissionFactor.category, EmissionFactor.year.desc()
-    ).all()
+def get_factors(db: Session = Depends(get_db), user=Depends(get_current_user)):
+    return db.query(EmissionFactor).all()
 
-    return [
-        {
-            "factor_id": f.factor_id,
-            "source": f.source,
-            "category": f.category,
-            "unit": f.unit,
-            "factor": float(f.factor),
-            "year": f.year,
-        }
-        for f in rows
-    ]
-
-
-# ------------------------------------------------------------
-# POST create factor manually
-# ------------------------------------------------------------
 @router.post("")
 def create_factor(payload: dict, db: Session = Depends(get_db), user=Depends(get_current_user)):
-
-    try:
-        factor_val = Decimal(str(payload.get("factor")))
-    except:
-        raise HTTPException(400, "factor must be numeric")
-
-    ef = EmissionFactor(
-        source=payload.get("source") or "manual",
-        category=payload.get("category"),
-        unit=payload.get("unit"),
-        factor=factor_val,
-        year=payload.get("year") or None,
+    f = EmissionFactor(
+        source=payload["source"],
+        category=payload["category"],
+        unit=payload["unit"],
+        factor=payload["factor"],
+        year=payload.get("year")
     )
-    db.add(ef)
+    db.add(f)
     db.commit()
-    db.refresh(ef)
-
-    return {"factor_id": ef.factor_id}
-
-
-# ------------------------------------------------------------
-# POST /api/factors/import
-# CSV columns expected: source,category,unit,factor,year
-# ------------------------------------------------------------
-@router.post("/import")
-def import_factors(file: UploadFile = File(...),
-                   db: Session = Depends(get_db),
-                   user=Depends(get_current_user)):
-
-    if not file.filename.lower().endswith(".csv"):
-        raise HTTPException(400, "Must upload CSV")
-
-    content = file.file.read().decode("utf-8").splitlines()
-    reader = csv.DictReader(content)
-
-    imported = 0
-
-    for row in reader:
-        try:
-            val = Decimal(row["factor"])
-        except:
-            continue
-
-        ef = EmissionFactor(
-            source=row.get("source") or "CSV",
-            category=row.get("category"),
-            unit=row.get("unit"),
-            factor=val,
-            year=int(row["year"]) if row.get("year") else None,
-        )
-        db.add(ef)
-        imported += 1
-
-    db.commit()
-
-    return {"imported": imported}
+    db.refresh(f)
+    return {"created": True, "factor": f.factor_id}

@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Facility Detail{% endblock %}
 {% block content %}
-
 <main class="container">
   <h1>Facility</h1>
 
@@ -14,126 +13,95 @@
 
   <section class="card">
     <h2>Quick Metrics (manual entry)</h2>
-    <p>Enter activity values with units so they can be logged as Scope 1/2 activities later.</p>
 
-    <form id="quick-metrics-form" class="grid-2">
+    <form id="quick-form" class="grid-2">
       <label>
         Monthly Electricity (kWh)
-        <input type="number" step="0.01" name="kwh" placeholder="kWh" />
+        <input id="kwh" type="number" step="0.01" />
       </label>
+
       <label>
         Natural Gas (therms)
-        <input type="number" step="0.01" name="therms" placeholder="therms" />
+        <input id="therms" type="number" step="0.01" />
       </label>
+
       <label>
         Diesel (gallons)
-        <input type="number" step="0.01" name="diesel_gal" placeholder="gal" />
+        <input id="diesel_gal" type="number" step="0.01" />
       </label>
+
       <label>
         Water (m³)
-        <input type="number" step="0.01" name="water_m3" placeholder="m³" />
+        <input id="water_m3" type="number" step="0.01" />
       </label>
-      <div>
-        <button type="submit">Save Metrics</button>
-      </div>
+
+      <button type="submit">Save Metrics</button>
     </form>
 
-    <small>Units: electricity=kWh, gas=therms, diesel=gallons, water=cubic meters.</small>
-    <p id="metrics-msg" style="margin-top:.5rem;"></p>
+    <p id="quick-msg"></p>
   </section>
 
   <section class="card">
-    <h2>Recent Activity (placeholder)</h2>
-    <div id="recent-activity">No entries yet.</div>
+    <h2>Recent Activity</h2>
+    <div id="recent">No entries yet.</div>
   </section>
 </main>
 
 <script>
 (function () {
-  const FACILITY_ID =
-      (typeof window.FACILITY_ID !== "undefined" && window.FACILITY_ID) ||
-      window.location.pathname.split("/").pop();
+    const facilityId = "{{ facility_id }}";
+    const token = localStorage.getItem("token");
 
-  const token = localStorage.getItem("token") || "";
+    const facName = document.getElementById("fac-name");
+    const facLoc = document.getElementById("fac-loc");
+    const facId = document.getElementById("fac-id");
+    const facGrid = document.getElementById("fac-grid");
 
-  const nameEl = document.getElementById("fac-name");
-  const locEl  = document.getElementById("fac-loc");
-  const idEl   = document.getElementById("fac-id");
-  const gridEl = document.getElementById("fac-grid");
-  const metricsForm = document.getElementById("quick-metrics-form");
-  const metricsMsg  = document.getElementById("metrics-msg");
+    async function loadFacility() {
+        const resp = await fetch(`/api/facilities/${facilityId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
 
-  function setMetricsMsg(text, ok = true) {
-    metricsMsg.textContent = text;
-    metricsMsg.style.color = ok ? "lightgreen" : "crimson";
-  }
+        if (!resp.ok) return;
 
-  async function loadFacility() {
-    try {
-      const resp = await fetch(`/api/facilities/${FACILITY_ID}`, {
-        credentials: "same-origin",
-        headers: token ? { "Authorization": `Bearer ${token}` } : {}
-      });
-      if (!resp.ok) {
-        console.error("Failed to load facility");
-        return;
-      }
-      const data = await resp.json();
-
-      nameEl.textContent = `Facility: ${data.name}`;
-      locEl.textContent  = `Location: ${data.location ?? ""}`;
-      idEl.textContent   = `ID: ${data.facility_id}`;
-      gridEl.textContent = `Grid Region: ${data.grid_region_code ?? ""}`;
-
-    } catch (err) {
-      console.error(err);
-    }
-  }
-
-  metricsForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-
-    const formData = new FormData(metricsForm);
-    const payload = {
-      kwh:       formData.get("kwh")       ? Number(formData.get("kwh"))       : null,
-      therms:    formData.get("therms")    ? Number(formData.get("therms"))    : null,
-      diesel_gal:formData.get("diesel_gal")? Number(formData.get("diesel_gal")): null,
-      water_m3:  formData.get("water_m3")  ? Number(formData.get("water_m3"))  : null,
-    };
-
-    // if everything is empty, do nothing
-    if (!payload.kwh && !payload.therms && !payload.diesel_gal && !payload.water_m3) {
-      setMetricsMsg("No values entered.", false);
-      return;
+        const data = await resp.json();
+        nameEl.textContent = data.name;
+locationEl.textContent = "Location: " + (data.location || "");
+idEl.textContent = "ID: " + data.facility_id;
+gridEl.textContent = "Grid Region: " + (data.grid_region_code || "");
     }
 
-    try {
-      const resp = await fetch(`/api/activities/quick/${FACILITY_ID}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { "Authorization": `Bearer ${token}` } : {})
-        },
-        credentials: "same-origin",
-        body: JSON.stringify(payload),
-      });
+    document.getElementById("quick-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
 
-      const text = await resp.text();
+        const payload = {
+            kwh: Number(document.getElementById("kwh").value),
+            therms: Number(document.getElementById("therms").value),
+            diesel_gal: Number(document.getElementById("diesel_gal").value),
+            water_m3: Number(document.getElementById("water_m3").value)
+        };
 
-      if (!resp.ok) {
-        setMetricsMsg(`Save failed: ${text}`, false);
-        return;
-      }
+        const resp = await fetch(`/api/activities/quick/${facilityId}`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify(payload)
+        });
 
-      setMetricsMsg("Metrics saved and logged as activities.", true);
-    } catch (err) {
-      console.error(err);
-      setMetricsMsg("Error saving metrics.", false);
-    }
-  });
+        const msg = document.getElementById("quick-msg");
+        if (!resp.ok) {
+            msg.textContent = "Save failed: " + await resp.text();
+            msg.style.color = "red";
+            return;
+        }
 
-  loadFacility();
+        msg.textContent = "Saved successfully.";
+        msg.style.color = "green";
+    });
+
+    loadFacility();
 })();
 </script>
-
 {% endblock %}
