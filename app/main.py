@@ -116,7 +116,7 @@ app.include_router(auth_router.router)
 # because the /api/facilities endpoints are defined directly above.
 # (If facilities_router.router used to define /api/facilities, delete those
 # to avoid duplicates.)
-app.include_router(facilities_router.router, prefix="/api")
+app.include_router(facilities_router.router)
 app.include_router(facilities_router.pages)
 # factors_router.router should expose:
 #   GET  /api/factors
