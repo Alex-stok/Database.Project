@@ -10,7 +10,7 @@ from ..security import get_current_user
 from ..models import ActivityLog, EmissionFactor, Facility
 from ..schemas import ActivityCreate
 
-router = APIRouter(prefix="/api/activities", tags=["activities"])
+router = APIRouter(prefix="/api/activities", tags=["activities"], dependencies=[Depends(get_current_user)])
 
 @router.post("/activities")
 def create_activity(
