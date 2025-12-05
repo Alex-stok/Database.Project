@@ -1,6 +1,9 @@
 # app/Routers/factors.py
-from fastapi import APIRouter, Depends, Request, UploadFile, File
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
+from sqlalchemy.orm import Session
+from decimal import Decimal
+import csv
+from io import StringIO
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from ..database import get_db
@@ -17,20 +20,104 @@ def list_factors(db: Session = Depends(get_db), user=Depends(get_current_user)):
     rows = db.query(EmissionFactor).all()
     return [{"factor_id": r.factor_id, "source": r.source, "category": r.category, "unit": r.unit, "factor": float(r.factor), "year": r.year} for r in rows]
 
-@router.post("/import")
-async def import_factors(file: UploadFile = File(...), db: Session = Depends(get_db), user=Depends(get_current_user)):
-    # CSV parsing stub – put your import logic here
-    content = await file.read()
-    # parse content...
-    return {"ok": True, "bytes": len(content)}
+from fastapi import UploadFile, File
+import csv
+from io import StringIO
 
-# ---------- HTML PAGES ----------
-pages = APIRouter(tags=["pages"])
+# ---------- Emission factors ----------
 
-@pages.get("/factors", response_class=HTMLResponse)
-def factors_page(request: Request, user=Depends(get_current_user)):
-    return templates.TemplateResponse("factors_list.html", {"request": request})
+@router.get("/factors")
+def list_factors(
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    # List all factors (you can later filter by source/year if you want)
+    return (
+        db.query(EmissionFactor)
+        .order_by(EmissionFactor.category, EmissionFactor.unit, EmissionFactor.year.desc())
+        .all()
+    )
 
-@pages.get("/factors/import", response_class=HTMLResponse)
-def factors_import_page(request: Request, user=Depends(get_current_user)):
-    return templates.TemplateResponse("factors_import.html", {"request": request})
+
+@router.post("/factors")
+def create_factor(
+    payload: dict,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    category = (payload.get("category") or payload.get("name") or "").strip()
+    unit = (payload.get("unit") or "").strip()
+    source = (payload.get("source") or "").strip()
+    factor_raw = payload.get("factor") or payload.get("value")
+    year_raw = payload.get("year")
+
+    if not category or not unit or factor_raw in (None, ""):
+        raise HTTPException(status_code=400, detail="Category, unit, and factor are required")
+
+    try:
+        factor_val = Decimal(str(factor_raw))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Factor must be numeric")
+
+    year_val = int(year_raw) if year_raw not in (None, "") else None
+
+    ef = EmissionFactor(
+        category=category,
+        unit=unit,
+        source=source or None,
+        factor=factor_val,
+        year=year_val,
+    )
+    db.add(ef)
+    db.commit()
+    db.refresh(ef)
+    return ef
+
+
+@router.post("/factors/import")
+async def import_factors(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    content = (await file.read()).decode("utf-8", errors="ignore")
+    reader = csv.DictReader(StringIO(content))
+
+    count = 0
+    for row in reader:
+        category = (row.get("category") or row.get("name") or "").strip()
+        if not category:
+            continue
+
+        unit = (row.get("unit") or "").strip()
+        value_raw = (
+            row.get("value_per_unit")
+            or row.get("factor")
+            or row.get("value")
+            or ""
+        )
+        source = (row.get("source") or "").strip()
+        year_raw = row.get("year")
+
+        if not unit or value_raw == "":
+            continue
+
+        try:
+            factor_val = Decimal(str(value_raw))
+        except Exception:
+            continue
+
+        year_val = int(year_raw) if year_raw not in (None, "") else None
+
+        ef = EmissionFactor(
+            category=category,
+            unit=unit,
+            source=source or None,
+            factor=factor_val,
+            year=year_val,
+        )
+        db.add(ef)
+        count += 1
+
+    db.commit()
+    return {"imported": count}

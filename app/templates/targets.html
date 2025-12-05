@@ -14,7 +14,39 @@
     <label>Baseline year <input type="number" name="baseline_year" placeholder="e.g., 2024"></label>
     <label>Target reduction <input type="number" step="0.1" name="target_percent"> %</label>
     <label>Target year <input type="number" name="target_year" placeholder="e.g., 2030"></label>
-    <button type="button">Save (placeholder)</button>
+    <button type="submit">Save</button>
+
+<script>
+(function () {
+  const token = localStorage.getItem('token') || '';
+  const form = document.querySelector('form');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(form);
+    const payload = {
+      baseline_year: Number(fd.get('baseline_year')),
+      reduction_percent: Number(fd.get('target_percent')),
+      target_year: Number(fd.get('target_year')),
+    };
+    const resp = await fetch('/api/targets', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+    if (!resp.ok) {
+      const t = await resp.text();
+      alert('Save failed: ' + t);
+      return;
+    }
+    alert('Target saved.');
+  });
+})();
+</script>
+
   </form>
 </body>
 </html>

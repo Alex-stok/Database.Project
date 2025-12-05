@@ -1,10 +1,21 @@
 # app/main.py
-from fastapi import FastAPI, Request, Depends
+from fastapi import Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-
-from .database import engine, Base, SessionLocal
+from fastapi import (
+    FastAPI, Depends, HTTPException, UploadFile, File,
+    Form, Query
+)
+from .models import (
+    Facility, EmissionFactor, ActivityLog, UploadedFile,
+    Target, ActivityType, Organization
+)
+from decimal import Decimal
+from datetime import date
+from sqlalchemy.orm import Session
+from collections import defaultdict
+from .database import engine, Base, SessionLocal, get_db
 from .Routers import auth as auth_router
 from .Routers import facilities as facilities_router
 from .Routers import factors as factors_router
@@ -56,15 +67,52 @@ def targets_page(request: Request, user=Depends(get_current_user)):
 def reports_page(request: Request, user=Depends(get_current_user)):
     return templates.TemplateResponse("reports_overview.html", {"request": request})
 
-# Facilities pages
-@app.get("/facilities", response_class=HTMLResponse)
-def facilities_page(request: Request, user=Depends(get_current_user)):
-    return templates.TemplateResponse("facilities_list.html", {"request": request})
 
-@app.get("/facilities/{facility_id}", response_class=HTMLResponse)
-def facility_detail_page(facility_id: int, request: Request, user=Depends(get_current_user)):
-    return templates.TemplateResponse("facility_detail.html",
-                                      {"request": request, "facility_id": facility_id})
+# ---------- Facilities API ----------
+
+@app.get("/api/facilities")
+def list_facilities(db: Session = Depends(get_db),
+                    user=Depends(get_current_user)):
+    return (
+        db.query(Facility)
+        .filter(Facility.org_id == user.org_id)
+        .order_by(Facility.facility_id)
+        .all()
+    )
+
+
+@app.post("/api/facilities")
+def create_facility(payload: dict,
+                    db: Session = Depends(get_db),
+                    user=Depends(get_current_user)):
+    # expected keys: name, location, grid_region_code
+    fac = Facility(
+        org_id=user.org_id,
+        name=payload.get("name"),
+        location=payload.get("location"),
+        grid_region_code=payload.get("grid_region_code"),
+    )
+    db.add(fac)
+    db.commit()
+    db.refresh(fac)
+    return fac
+
+@app.post("/api/targets")
+def create_target(payload: dict,
+                  db: Session = Depends(get_db),
+                  user=Depends(get_current_user)):
+    t = Target(
+        org_id=user.org_id,
+        baseline_year=int(payload["baseline_year"]),
+        baseline_co2e_kg=None,
+        target_year=int(payload["target_year"]),
+        reduction_percent=Decimal(str(payload["reduction_percent"])),
+        created_by=user.user_id,
+    )
+    db.add(t)
+    db.commit()
+    db.refresh(t)
+    return t
 
 # Factors pages (your HTML expects these exact paths)
 @app.get("/factors", response_class=HTMLResponse)

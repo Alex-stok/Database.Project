@@ -10,41 +10,6 @@
   <link rel="stylesheet" href="/static/css/main.css">
 </head>
 
-<script>
-(function () {
-  const token = localStorage.getItem('token') || '';
-  const form = document.getElementById('activityForm');
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const fd = new FormData(form);
-    const payload = Object.fromEntries(fd.entries());
-
-    // convert numeric fields
-    if (payload.quantity) payload.quantity = Number(payload.quantity);
-    if (payload.facility_id) payload.facility_id = Number(payload.facility_id);
-
-    const resp = await fetch('/api/activities', {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + token,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-
-    if (!resp.ok) {
-      const txt = await resp.text();
-      alert('Failed to save activity: ' + txt);
-      return;
-    }
-    alert('Activity logged.');
-    form.reset();
-  });
-})();
-</script>
-
-
 <body>
   <h2>New Activity</h2>
   <form id="activityForm">
@@ -78,6 +43,41 @@
     <label>Activity date <input type="date" name="activity_date" required></label>
     <label>Facility ID <input type="number" name="facility_id" placeholder="e.g., 1"></label>
     <button type="submit">Submit</button>
+
+    <script>
+(function () {
+  const token = localStorage.getItem('token') || '';
+  const form = document.getElementById('activityForm');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(form);
+    const payload = Object.fromEntries(fd.entries());
+
+    // convert numeric fields
+    if (payload.quantity) payload.quantity = Number(payload.quantity);
+    if (payload.facility_id) payload.facility_id = Number(payload.facility_id);
+
+    const resp = await fetch('/api/activities', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!resp.ok) {
+      const txt = await resp.text();
+      alert('Failed to save activity: ' + txt);
+      return;
+    }
+    alert('Activity logged.');
+    form.reset();
+  });
+})();
+</script>
+
   </form>
 </body>
 </html>

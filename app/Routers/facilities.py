@@ -30,36 +30,43 @@ class FacilityOut(BaseModel):
 
 # ---------- JSON API ----------
 
-@router.get("", summary="List facilities")
-@router.get("/", include_in_schema=False)
-def list_facilities(db: Session = Depends(get_db), user=Depends(get_current_user)):
-    rows = (
+@router.get("/facilities")
+def list_facilities(
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    # Only facilities for the current user's org
+    return (
         db.query(Facility)
         .filter(Facility.org_id == user.org_id)
+        .order_by(Facility.facility_id)
         .all()
     )
-    return [
-        {
-            "facility_id": f.facility_id,
-            "name": f.name,
-            "location": f.location,
-            "grid_region_code": f.grid_region_code,
-        } for f in rows
-    ]
 
-@router.post("", summary="Create facility")
-@router.post("/", include_in_schema=False)
-def create_facility(payload: dict, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    f = Facility(
+
+@router.post("/facilities")
+def create_facility(
+    payload: dict,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    name = (payload.get("name") or "").strip()
+    grid_region_code = (payload.get("grid_region_code") or "").strip()
+    location = (payload.get("location") or "").strip()
+
+    if not name:
+        raise HTTPException(status_code=400, detail="Facility name is required")
+
+    fac = Facility(
         org_id=user.org_id,
-        name=payload.get("name"),
-        location=payload.get("location"),
-        grid_region_code=payload.get("grid_region_code"),
+        name=name,
+        grid_region_code=grid_region_code or None,
+        location=location or None,
     )
-    db.add(f)
+    db.add(fac)
     db.commit()
-    db.refresh(f)
-    return {"facility_id": f.facility_id}
+    db.refresh(fac)
+    return fac
 
 @router.get("/{facility_id}")
 def get_facility(facility_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
