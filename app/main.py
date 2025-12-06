@@ -18,6 +18,7 @@ from app.Routers import (
 
 app = FastAPI()
 
+app.include_router(auth.profile_router)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 app.state.templates = templates   # ← add this line

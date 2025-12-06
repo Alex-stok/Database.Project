@@ -1,8 +1,10 @@
 from pydantic import BaseModel, EmailStr
-from decimal import Decimal 
+from decimal import Decimal
 from typing import Optional
 
-# Auth
+# -----------------
+# Auth / Users
+# -----------------
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
@@ -11,23 +13,40 @@ class UserCreate(BaseModel):
     industry: Optional[str] = None
     size: Optional[str] = None
 
+
 class UserOut(BaseModel):
     user_id: int
     email: EmailStr
     full_name: Optional[str]
     role: str
     org_id: Optional[int]
+
     class Config:
         from_attributes = True
+
 
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
 
+
+# -----------------
+# Activities (JSON API)
+# -----------------
 class ActivityCreate(BaseModel):
     facility_id: int
     activity_type: str
     quantity: float
     unit: str
-    activity_date: Decimal
+    activity_date: Decimal  # keep as-is to match your existing code
 
+
+# -----------------
+# Profile
+# -----------------
+class ProfileUpdate(BaseModel):
+    full_name: Optional[str] = None
+    org_name: Optional[str] = None
+    org_industry: Optional[str] = None
+    org_address: Optional[str] = None
+    org_size: Optional[str] = None
