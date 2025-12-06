@@ -164,3 +164,33 @@ def alias_create_activity(
     user=Depends(get_current_user),
 ):
     return create_activity(payload, db=db, user=user)
+
+@router.delete("/{activity_id}")
+def delete_activity(
+    activity_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user)
+):
+    """
+    Delete a single activity, ensuring:
+    - It exists
+    - It belongs to a facility owned by the user's org
+    """
+
+    act = (
+        db.query(ActivityLog)
+        .join(Facility, ActivityLog.facility_id == Facility.facility_id)
+        .filter(
+            ActivityLog.activity_id == activity_id,
+            Facility.org_id == user.org_id
+        )
+        .first()
+    )
+
+    if not act:
+        raise HTTPException(404, "Activity not found or access denied")
+
+    db.delete(act)
+    db.commit()
+
+    return {"deleted": True, "activity_id": activity_id}

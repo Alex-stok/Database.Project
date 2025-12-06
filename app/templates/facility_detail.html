@@ -22,13 +22,29 @@
   <!-- Recent Activity -->
   <section class="card">
     <h2>Recent Activity</h2>
-    <div id="recent-activity">No entries yet.</div>
+    <div id="recent-activity">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Type</th>
+              <th>Quantity</th>
+              <th>Unit</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="activities-tbody">
+            <tr><td colspan="5">No entries yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </section>
 </main>
 
-  <script>
+<script>
   (function () {
-    // Prefer templated id if provided; fall back to URL segment.
     const FACILITY_ID =
       (typeof window.FACILITY_ID !== "undefined" && window.FACILITY_ID) ||
       window.location.pathname.split("/").pop();
@@ -40,6 +56,7 @@
     const gridEl      = document.getElementById("grid_region_code");
     const msgEl       = document.getElementById("message");
     const recentBox   = document.getElementById("recent-activity");
+    const tbody       = document.getElementById("activities-tbody");
 
     function authHeaders() {
       return token ? { "Authorization": "Bearer " + token } : {};
@@ -74,7 +91,6 @@
         if (locationEl) locationEl.value = data.location ?? "";
         if (gridEl)     gridEl.value     = data.grid_region_code ?? "";
 
-        // Also fill the read-only heading at top if present
         const facName = document.getElementById("fac-name");
         const facLoc  = document.getElementById("fac-loc");
         const facId   = document.getElementById("fac-id");
@@ -93,8 +109,8 @@
     // Load activities for this facility
     // -----------------------------
     async function loadActivities() {
-      if (!recentBox) return;
-      recentBox.textContent = "Loading…";
+      if (!tbody) return;
+      tbody.innerHTML = '<tr><td colspan="5">Loading…</td></tr>';
 
       try {
         const resp = await fetch(
@@ -108,36 +124,101 @@
           }
         );
 
+        if (resp.status === 401) {
+          window.location.href = "/login";
+          return;
+        }
+
         if (!resp.ok) {
           const txt = await resp.text();
           console.error("Failed to load activities", resp.status, txt);
-          recentBox.textContent = `Error loading activities (${resp.status}). See console.`;
+          tbody.innerHTML =
+            `<tr><td colspan="5">Error loading activities (${resp.status}). See console.</td></tr>`;
           return;
         }
 
         const data = await resp.json();
+        tbody.innerHTML = "";
+
         if (!Array.isArray(data) || !data.length) {
-          recentBox.textContent = "No entries yet.";
+          tbody.innerHTML = '<tr><td colspan="5">No entries yet.</td></tr>';
           return;
         }
 
-        // Render as a simple list for now; you can change this to a table if you prefer
-        recentBox.innerHTML = data.map(a => {
-          const type = a.activity_type || "";
-          const qty  = a.quantity ?? "";
-          const unit = a.unit || "";
-          const date = a.activity_date || "";
-          return `<div>${type} — ${qty} ${unit} on ${date}</div>`;
-        }).join("");
+        for (const a of data) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${a.activity_date || ""}</td>
+            <td>${a.activity_type || ""}</td>
+            <td>${a.quantity ?? ""}</td>
+            <td>${a.unit || ""}</td>
+            <td>
+              <button type="button"
+                      class="btn"
+                      data-delete-id="${a.activity_id}">
+                Delete
+              </button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        }
       } catch (err) {
         console.error("Error loading activities", err);
-        recentBox.textContent = "Error loading activities (see console).";
+        tbody.innerHTML =
+          '<tr><td colspan="5">Error loading activities (see console).</td></tr>';
       }
     }
 
     // -----------------------------
-    // Save and delete facility (existing behaviour)
+    // Delete activity (on click)
     // -----------------------------
+    if (recentBox) {
+      recentBox.addEventListener("click", async (ev) => {
+        const btn = ev.target.closest("[data-delete-id]");
+        if (!btn) return;
+
+        const id = btn.getAttribute("data-delete-id");
+        if (!id) return;
+
+        if (!confirm("Delete this activity?")) return;
+
+        try {
+          const resp = await fetch(`/api/activities/${id}`, {
+            method: "DELETE",
+            headers: {
+              ...authHeaders()
+            },
+            credentials: "same-origin",
+          });
+
+          if (resp.status === 401) {
+            window.location.href = "/login";
+            return;
+          }
+
+          if (!resp.ok) {
+            const txt = await resp.text();
+            console.error("Failed to delete activity", resp.status, txt);
+            alert("Failed to delete activity.");
+            return;
+          }
+
+          // Remove the row from the table
+          const row = btn.closest("tr");
+          if (row) row.remove();
+
+          // If no rows left, show placeholder
+          if (!tbody.querySelector("tr")) {
+            tbody.innerHTML = '<tr><td colspan="5">No entries yet.</td></tr>';
+          }
+        } catch (err) {
+          console.error("Error deleting activity", err);
+          alert("Error deleting activity (see console).");
+        }
+      });
+    }
+
+    // Existing facility save/delete functions (no-op on this page if there is no form)
     async function saveFacility(ev) {
       ev.preventDefault();
       setMsg("");
@@ -200,6 +281,6 @@
     loadFacility();
     loadActivities();
   })();
-  </script>
+</script>
 
 {% endblock %}
