@@ -32,10 +32,10 @@
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    // Planner settings are NOT part of backend yet,
-    // so we simply fetch the impact report.
     const resp = await fetch('/api/planner/evaluate', {
-      headers: { 'Authorization': 'Bearer ' + token }
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token },
+    body: JSON.stringify(payload)
     });
 
     out.textContent = resp.ok

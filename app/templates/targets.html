@@ -26,10 +26,11 @@
 
     const fd = new FormData(form);
     const payload = {
-      baseline_year: Number(fd.get('baseline_year')),
-      reduction_percent: Number(fd.get('target_percent')),
-      target_year: Number(fd.get('target_year')),
-    };
+    baseline_year: Number(form.baseline_year.value),
+    target_percent: Number(form.target_percent.value),
+    target_year: Number(form.target_year.value)
+  };
+
 
     const resp = await fetch('/api/targets', {
       method: 'POST',
