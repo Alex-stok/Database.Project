@@ -11,7 +11,7 @@ router = APIRouter(prefix="/api/planner", tags=["planner"])
 pages = APIRouter(tags=["planner:pages"])
 
 @pages.get("/planner", response_class=HTMLResponse)
-def planner_page(request: Request, user=Depends(get_current_user)):
+def planner_page(request: Request):
     return request.app.state.templates.TemplateResponse("planner.html", {"request": request})
 
 @router.get("/library")

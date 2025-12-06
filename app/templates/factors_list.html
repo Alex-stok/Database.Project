@@ -76,7 +76,7 @@
     }
 
     async function loadFactors() {
-      const r = await fetch('/factors', { headers: authHeaders() });
+      const r = await fetch('/api/factors', { headers: { 'Authorization': 'Bearer ' + token }});
       if (r.status === 401) return (window.location.href = '/login');
       if (!r.ok) { console.error('Failed to load factors'); return; }
       const data = await r.json();

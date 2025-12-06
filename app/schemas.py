@@ -1,10 +1,10 @@
+# app/schemas.py
 from pydantic import BaseModel, EmailStr
 from decimal import Decimal
 from typing import Optional
 
-# -----------------
-# Auth / Users
-# -----------------
+# ---------- Auth ----------
+
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
@@ -30,23 +30,28 @@ class Token(BaseModel):
     token_type: str = "bearer"
 
 
-# -----------------
-# Activities (JSON API)
-# -----------------
+# ---------- Activities ----------
+
 class ActivityCreate(BaseModel):
     facility_id: int
-    activity_type: str
+    activity_type: str   # e.g. "ELEC_USE", "NAT_GAS" (from activity_type.code)
     quantity: float
+    unit: str            # e.g. "kWh", "therm", "gal"
+    # keep as str/Decimal if you want, but date is more natural:
+    # from datetime import date
+    # activity_date: date
+    activity_date: Decimal
+
+
+# ---------- Emission factors ----------
+
+class FactorOut(BaseModel):
+    factor_id: int
+    source: str
+    category: str
     unit: str
-    activity_date: Decimal  # keep as-is to match your existing code
+    factor: Decimal
+    year: Optional[int] = None
 
-
-# -----------------
-# Profile
-# -----------------
-class ProfileUpdate(BaseModel):
-    full_name: Optional[str] = None
-    org_name: Optional[str] = None
-    org_industry: Optional[str] = None
-    org_address: Optional[str] = None
-    org_size: Optional[str] = None
+    class Config:
+        from_attributes = True
