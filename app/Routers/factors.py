@@ -19,14 +19,6 @@ def factors_page(request: Request):
         {"request": request},
     )
 
-
-@router.get("", response_model=list[FactorOut])
-def list_factors(db: Session = Depends(get_db), user=Depends(get_current_user)):
-    # In this version we just return all factors.
-    # If you want org-specific later, you can filter by user.org_id.
-    return db.query(EmissionFactor).all()
-
-
 @router.post("")
 def create_factor(payload: dict, db: Session = Depends(get_db), user=Depends(get_current_user)):
     f = EmissionFactor(

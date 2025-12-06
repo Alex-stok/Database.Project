@@ -42,14 +42,15 @@ class ActivityCreate(BaseModel):
 
 class FactorOut(BaseModel):
     factor_id: int
-    source: Optional[str]
+    source: str
     category: str
     unit: str
-    factor: Decimal
-    year: Optional[int]
+    factor: float
+    year: int | None
 
     class Config:
         from_attributes = True
+
 
 
 # ---------- Organization & Profile ----------
@@ -75,3 +76,8 @@ class ProfileUpdate(BaseModel):
 class ProfileOut(BaseModel):
     user: UserOut
     organization: Optional[OrganizationOut]
+    
+class TargetIn(BaseModel):
+    baseline_year: int
+    reduction_percent: float   # instead of target_percent
+    target_year: int
