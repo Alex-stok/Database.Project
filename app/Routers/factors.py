@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..security import get_current_user
 from ..models import EmissionFactor
-from ..schemas import FactorOut   # <-- import the schema
+from ..schemas import FactorOut
 
 router = APIRouter(prefix="/api/factors", tags=["factors"])
 pages = APIRouter(tags=["factors:pages"])
@@ -20,24 +20,17 @@ def factors_page(request: Request):
     )
 
 
-# Single JSON list endpoint for the front-end table
 @router.get("", response_model=list[FactorOut])
-def list_factors(
-    db: Session = Depends(get_db),
-    user=Depends(get_current_user),
-):
-    rows = db.query(EmissionFactor).all()
-    return rows
+def list_factors(db: Session = Depends(get_db), user=Depends(get_current_user)):
+    # In this version we just return all factors.
+    # If you want org-specific later, you can filter by user.org_id.
+    return db.query(EmissionFactor).all()
 
 
-@router.post("", response_model=FactorOut)
-def create_factor(
-    payload: dict,
-    db: Session = Depends(get_db),
-    user=Depends(get_current_user),
-):
+@router.post("")
+def create_factor(payload: dict, db: Session = Depends(get_db), user=Depends(get_current_user)):
     f = EmissionFactor(
-        source=payload["source"],
+        source=payload.get("source"),
         category=payload["category"],
         unit=payload["unit"],
         factor=payload["factor"],
@@ -46,4 +39,4 @@ def create_factor(
     db.add(f)
     db.commit()
     db.refresh(f)
-    return f
+    return {"created": True, "factor_id": f.factor_id}

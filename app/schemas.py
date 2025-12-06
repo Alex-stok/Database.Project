@@ -1,20 +1,16 @@
 # app/schemas.py
-from pydantic import BaseModel, EmailStr
-from typing import Optional
-from datetime import date
 from decimal import Decimal
+from typing import Optional
 
-# =====================================================
-# AUTH / USER
-# =====================================================
+from pydantic import BaseModel, EmailStr
 
+
+# ---------- Auth ----------
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
     full_name: Optional[str] = None
-
-    # Optional org info during registration
-    org_name: Optional[str] = None
+    org_name: Optional[str] = None  # allow creating org at registration
     industry: Optional[str] = None
     size: Optional[str] = None
 
@@ -35,69 +31,47 @@ class Token(BaseModel):
     token_type: str = "bearer"
 
 
-# =====================================================
-# ORGANIZATION + PROFILE
-# =====================================================
-
-class OrgOut(BaseModel):
-    org_id: int
-    name: str
-    industry: Optional[str] = None
-    address: Optional[str] = None
-    size: Optional[str] = None
-
-    class Config:
-        from_attributes = True
-
-
-class ProfileOut(BaseModel):
-    user: UserOut
-    organization: Optional[OrgOut]
-
-
-class ProfileUpdate(BaseModel):
-    """
-    Used by PUT /api/profile/me
-
-    All fields are optional so the user can update just one field
-    without sending everything.
-    """
-    full_name: Optional[str] = None
-
-    # Org fields (we'll create/update the org behind the scenes)
-    org_name: Optional[str] = None
-    industry: Optional[str] = None
-    address: Optional[str] = None
-    size: Optional[str] = None
-
-
-# =====================================================
-# ACTIVITIES
-# =====================================================
-
+# ---------- Activities / Factors ----------
 class ActivityCreate(BaseModel):
-    """
-    If any endpoint uses a typed body for creating activities,
-    this matches the structured ActivityLog fields.
-    """
     facility_id: int
     activity_type_id: int
     unit_id: int
     quantity: Decimal
-    activity_date: date
+    activity_date: str  # ISO date string (YYYY-MM-DD)
 
-
-# =====================================================
-# EMISSION FACTORS
-# =====================================================
 
 class FactorOut(BaseModel):
     factor_id: int
-    source: str
+    source: Optional[str]
     category: str
     unit: str
     factor: Decimal
-    year: Optional[int] = None
+    year: Optional[int]
 
     class Config:
         from_attributes = True
+
+
+# ---------- Organization & Profile ----------
+class OrganizationOut(BaseModel):
+    org_id: int
+    name: Optional[str]
+    industry: Optional[str]
+    address: Optional[str]
+    size: Optional[str]
+
+    class Config:
+        from_attributes = True
+
+
+class ProfileUpdate(BaseModel):
+    full_name: Optional[str] = None
+    org_name: Optional[str] = None
+    org_industry: Optional[str] = None
+    org_address: Optional[str] = None
+    org_size: Optional[str] = None
+
+
+class ProfileOut(BaseModel):
+    user: UserOut
+    organization: Optional[OrganizationOut]

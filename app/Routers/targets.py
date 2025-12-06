@@ -1,8 +1,11 @@
 # app/Routers/targets.py
-from fastapi import APIRouter, Depends, HTTPException, Request
+from datetime import date
+from decimal import Decimal
+
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
-from decimal import Decimal
+
 from ..database import get_db
 from ..security import get_current_user
 from ..models import Target, ActivityLog, Facility
@@ -10,52 +13,61 @@ from ..models import Target, ActivityLog, Facility
 router = APIRouter(prefix="/api/targets", tags=["targets"])
 pages = APIRouter(tags=["targets:pages"])
 
-@pages.get("/targets", response_class=HTMLResponse)
-def page(request: Request, user=Depends(get_current_user)):
-    return request.app.state.templates.TemplateResponse("targets.html", {"request": request})
 
-def compute_baseline(org_id: int, year: int, db: Session) -> Decimal:
-    q = (
-        db.query(ActivityLog)
-        .join(Facility)
-        .filter(Facility.org_id == org_id)
-        .filter(ActivityLog.activity_date != None)
-        .filter(ActivityLog.activity_date.between(f"{year}-01-01", f"{year}-12-31"))
+@pages.get("/targets", response_class=HTMLResponse)
+def page(request: Request):
+    return request.app.state.templates.TemplateResponse(
+        "targets.html",
+        {"request": request},
     )
-    total = Decimal("0")
-    for r in q.all():
-        total += Decimal(str(r.co2e_kg or 0))
-    return total
+
+
+from pydantic import BaseModel
+
+
+class TargetIn(BaseModel):
+    baseline_year: int
+    target_percent: float  # reduction percent
+    target_year: int
+
 
 @router.post("")
-def save(payload: dict, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    baseline_year = payload["baseline_year"]
-    target_year = payload["target_year"]
-    reduction_pct = payload["reduction_percent"]
+def create_target(
+    payload: TargetIn,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    # Sum all emissions for this org between baseline_year and target_year
+    start_date = date(payload.baseline_year, 1, 1)
+    end_date = date(payload.target_year, 12, 31)
 
-    baseline = compute_baseline(user.org_id, baseline_year, db)
-
-    existing = (
-        db.query(Target)
-        .filter(Target.org_id == user.org_id)
-        .filter(Target.baseline_year == baseline_year)
-        .filter(Target.target_year == target_year)
-        .first()
+    q = (
+        db.query(ActivityLog)
+        .join(Facility, Facility.facility_id == ActivityLog.facility_id)
+        .filter(Facility.org_id == user.org_id)
+        .filter(ActivityLog.activity_date >= start_date)
+        .filter(ActivityLog.activity_date <= end_date)
     )
 
-    if existing:
-        existing.reduction_percent = reduction_pct
-        existing.baseline_co2e_kg = baseline
-    else:
-        t = Target(
-            org_id=user.org_id,
-            baseline_year=baseline_year,
-            baseline_co2e_kg=baseline,
-            target_year=target_year,
-            reduction_percent=reduction_pct,
-            created_by=user.user_id,
-        )
-        db.add(t)
+    baseline_total = Decimal("0")
+    for row in q:
+        baseline_total += Decimal(str(row.co2e_kg or 0))
 
+    t = Target(
+        org_id=user.org_id,
+        baseline_year=payload.baseline_year,
+        target_year=payload.target_year,
+        reduction_percent=Decimal(str(payload.target_percent)),
+        baseline_co2e_kg=baseline_total,
+    )
+    db.add(t)
     db.commit()
-    return {"saved": True, "baseline": float(baseline)}
+    db.refresh(t)
+
+    return {
+        "target_id": t.target_id,
+        "baseline_year": t.baseline_year,
+        "target_year": t.target_year,
+        "reduction_percent": float(t.reduction_percent),
+        "baseline_co2e_kg": float(t.baseline_co2e_kg or 0),
+    }
