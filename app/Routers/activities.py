@@ -25,7 +25,7 @@ TYPE_CODE_TO_CATEGORY = {
 }
 
 
-# ---------------- PAGE: new activity ----------------
+# ---------------- API: list activities ----------------
 
 @router.get("")
 def list_activities(
@@ -50,6 +50,22 @@ def list_activities(
 
     activities = q.order_by(ActivityLog.activity_date.desc()).all()
     return activities
+
+
+# ---------------- PAGES ----------------
+
+@pages.get("/activities", response_class=HTMLResponse)
+def activities_page(
+    request: Request,
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    HTML route for /activities.
+    For now it simply shows the 'new activity' form with dropdowns populated.
+    """
+    return new_activity_page(request=request, user=user, db=db)
+
 
 @pages.get("/activities/new", response_class=HTMLResponse)
 def new_activity_page(
@@ -77,6 +93,7 @@ def new_activity_page(
 
 
 # ---------------- CREATE activity ----------------
+
 @router.post("")
 def create_activity(
     payload: dict,
@@ -165,6 +182,7 @@ def alias_create_activity(
 ):
     return create_activity(payload, db=db, user=user)
 
+
 @router.delete("/{activity_id}")
 def delete_activity(
     activity_id: int,
@@ -176,7 +194,6 @@ def delete_activity(
     - It exists
     - It belongs to a facility owned by the user's org
     """
-
     act = (
         db.query(ActivityLog)
         .join(Facility, ActivityLog.facility_id == Facility.facility_id)

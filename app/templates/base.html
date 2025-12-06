@@ -117,18 +117,13 @@
         
         <a href="/">Home</a>
         <a href="/dashboard">Dashboard</a>
+        <a href="/reports">Reports</a>
         <a href="/facilities">Facilities</a>
         <a href="/activities">Activities</a>
         <a href="/factors">Factors</a>
         <a href="/targets">Targets</a>
-
+        <a href="/logout">Logout</a>
         
-        {% if session and session.get("user") %}
-            <a href="/logout">Logout</a>
-        {% else %}
-            <a href="/login">Login</a>
-            <a href="/register">Create Account</a>
-        {% endif %}
     </nav>
 </header>
 

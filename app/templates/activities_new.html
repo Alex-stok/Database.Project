@@ -55,9 +55,14 @@ document.getElementById("activity-form").addEventListener("submit", async (e) =>
         activity_date: document.getElementById("activity_date").value
     };
 
+    const token = localStorage.getItem("token") || "";
+
     const resp = await fetch("/api/activities", {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
+        headers: {
+            "Content-Type": "application/json",
+            ...(token ? { "Authorization": "Bearer " + token } : {})
+        },
         body: JSON.stringify(payload),
     });
 
