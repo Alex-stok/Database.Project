@@ -1,10 +1,10 @@
 # app/Routers/activities.py
-from fastapi import APIRouter, Depends, Request, HTTPException, Body
+from fastapi import APIRouter, Query, Depends, Request, HTTPException, Body
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from decimal import Decimal
 from datetime import date
-
+from typing import Optional
 from ..database import get_db
 from ..security import get_current_user
 from ..models import ActivityLog, Facility, EmissionFactor, ActivityType, Unit
@@ -26,6 +26,31 @@ TYPE_CODE_TO_CATEGORY = {
 
 
 # ---------------- PAGE: new activity ----------------
+
+@router.get("")
+def list_activities(
+    facility_id: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    """
+    List activities.
+
+    - If facility_id is provided, return only activities for that facility.
+    - Otherwise, return all activities for the user's org.
+    """
+    q = (
+        db.query(ActivityLog)
+        .join(Facility, ActivityLog.facility_id == Facility.facility_id)
+        .filter(Facility.org_id == user.org_id)
+    )
+
+    if facility_id is not None:
+        q = q.filter(ActivityLog.facility_id == facility_id)
+
+    activities = q.order_by(ActivityLog.activity_date.desc()).all()
+    return activities
+
 @pages.get("/activities/new", response_class=HTMLResponse)
 def new_activity_page(
     request: Request,
