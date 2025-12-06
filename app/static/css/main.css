@@ -87,3 +87,28 @@ th { text-align: left; color: var(--muted); font-weight: 600; }
   color: #111827;       /* slate-900 */
   background: #f9fafb;  /* light gray */
 }
+
+/* Better styling for dropdown menus */
+select {
+  /* keep your existing styles, plus force a dark theme for the open menu */
+  background: #0b1224;
+  color: var(--text);
+  border: 1px solid var(--border);
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+/* The actual rows inside the dropdown */
+select option {
+  background: var(--bg);       /* dark background */
+  color: var(--text);          /* light text */
+}
+
+/* Selected / hovered option */
+select option:checked,
+select option:hover,
+select option:focus {
+  background: #1d4ed8;         /* blue highlight similar to your accent */
+  color: #ffffff;
+}
