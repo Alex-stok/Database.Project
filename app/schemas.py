@@ -1,15 +1,20 @@
 # app/schemas.py
 from pydantic import BaseModel, EmailStr
-from decimal import Decimal
 from typing import Optional
+from datetime import date
+from decimal import Decimal
 
-# ---------- Auth ----------
+# =====================================================
+# AUTH / USER
+# =====================================================
 
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
     full_name: Optional[str] = None
-    org_name: Optional[str] = None  # allow creating org at registration
+
+    # Optional org info during registration
+    org_name: Optional[str] = None
     industry: Optional[str] = None
     size: Optional[str] = None
 
@@ -30,20 +35,61 @@ class Token(BaseModel):
     token_type: str = "bearer"
 
 
-# ---------- Activities ----------
+# =====================================================
+# ORGANIZATION + PROFILE
+# =====================================================
+
+class OrgOut(BaseModel):
+    org_id: int
+    name: str
+    industry: Optional[str] = None
+    address: Optional[str] = None
+    size: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ProfileOut(BaseModel):
+    user: UserOut
+    organization: Optional[OrgOut]
+
+
+class ProfileUpdate(BaseModel):
+    """
+    Used by PUT /api/profile/me
+
+    All fields are optional so the user can update just one field
+    without sending everything.
+    """
+    full_name: Optional[str] = None
+
+    # Org fields (we'll create/update the org behind the scenes)
+    org_name: Optional[str] = None
+    industry: Optional[str] = None
+    address: Optional[str] = None
+    size: Optional[str] = None
+
+
+# =====================================================
+# ACTIVITIES
+# =====================================================
 
 class ActivityCreate(BaseModel):
+    """
+    If any endpoint uses a typed body for creating activities,
+    this matches the structured ActivityLog fields.
+    """
     facility_id: int
-    activity_type: str   # e.g. "ELEC_USE", "NAT_GAS" (from activity_type.code)
-    quantity: float
-    unit: str            # e.g. "kWh", "therm", "gal"
-    # keep as str/Decimal if you want, but date is more natural:
-    # from datetime import date
-    # activity_date: date
-    activity_date: Decimal
+    activity_type_id: int
+    unit_id: int
+    quantity: Decimal
+    activity_date: date
 
 
-# ---------- Emission factors ----------
+# =====================================================
+# EMISSION FACTORS
+# =====================================================
 
 class FactorOut(BaseModel):
     factor_id: int
