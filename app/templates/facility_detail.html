@@ -19,46 +19,90 @@
     </a>
   </section>
 
-  <!-- Recent Activity Placeholder -->
+  <!-- Recent Activity -->
   <section class="card">
     <h2>Recent Activity</h2>
-    <div id="recent">No entries yet.</div>
+    <div id="recent-activity">No entries yet.</div>
   </section>
 </main>
 
 <script>
 (function () {
-    const facilityId = "{{ facility_id }}";
-    const token = localStorage.getItem("token");
+  const facilityId = "{{ facility_id }}";
+  const token = localStorage.getItem("token") || "";
 
-    // Correct element references
-    const facName = document.getElementById("fac-name");
-    const facLoc = document.getElementById("fac-loc");
-    const facId = document.getElementById("fac-id");
-    const facGrid = document.getElementById("fac-grid");
+  const facName = document.getElementById("fac-name");
+  const facLoc  = document.getElementById("fac-loc");
+  const facId   = document.getElementById("fac-id");
+  const facGrid = document.getElementById("fac-grid");
+  const recentBox = document.getElementById("recent-activity");
 
-    // -----------------------------
-    // Load facility details
-    // -----------------------------
-    async function loadFacility() {
-        const resp = await fetch(`/api/facilities/${facilityId}`, {
-            headers: { "Authorization": `Bearer ${token}` }
-        });
+  function authHeaders() {
+    return token ? { "Authorization": "Bearer " + token } : {};
+  }
 
-        if (!resp.ok) {
-            facName.textContent = "Facility: (Error loading)";
-            return;
-        }
-
-        const data = await resp.json();
-
-        facName.textContent = "Facility: " + (data.name || "");
-        facLoc.textContent = "Location: " + (data.location || "");
-        facId.textContent = "ID: " + (data.facility_id || "");
-        facGrid.textContent = "Grid Region: " + (data.grid_region_code || "");
+  // -----------------------------
+  // Load facility details
+  // -----------------------------
+  async function loadFacility() {
+    try {
+      const resp = await fetch(`/api/facilities/${facilityId}`, {
+        headers: authHeaders()
+      });
+      if (!resp.ok) {
+        facName.textContent = "Facility: (Error loading)";
+        return;
+      }
+      const data = await resp.json();
+      facName.textContent = "Facility: " + (data.name || "");
+      facLoc.textContent  = "Location: " + (data.location || "");
+      facId.textContent   = "ID: " + (data.facility_id || "");
+      facGrid.textContent = "Grid Region: " + (data.grid_region_code || "");
+    } catch (err) {
+      console.error(err);
+      facName.textContent = "Facility: (Error loading)";
     }
+  }
 
-    loadFacility();
+  // -----------------------------
+  // Load activities for facility
+  // -----------------------------
+  async function loadActivities() {
+    recentBox.textContent = "Loading…";
+    try {
+      const resp = await fetch(`/api/activities?facility_id=${encodeURIComponent(facilityId)}`, {
+        headers: authHeaders()
+      });
+      if (resp.status === 401) {
+        window.location.href = "/login";
+        return;
+      }
+      if (!resp.ok) {
+        recentBox.textContent = "Error loading activities.";
+        return;
+      }
+      const data = await resp.json();
+
+      if (!data || !data.length) {
+        recentBox.textContent = "No entries yet.";
+        return;
+      }
+
+      recentBox.innerHTML = data.map(a => {
+        const dt = a.activity_date || "";
+        const qty = a.quantity ?? "";
+        const unit = a.unit || "";
+        const type = a.activity_type || "";
+        return `<div>${type} — ${qty} ${unit} on ${dt}</div>`;
+      }).join("");
+    } catch (err) {
+      console.error(err);
+      recentBox.textContent = "Error loading activities.";
+    }
+  }
+
+  loadFacility();
+  loadActivities();
 })();
 </script>
 {% endblock %}

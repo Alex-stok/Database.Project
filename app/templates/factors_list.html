@@ -64,11 +64,12 @@
     </section>
   </main>
 
-  <script>
+    <script>
     function authHeaders() {
       const t = localStorage.getItem('token');
       return t ? { 'Authorization': 'Bearer ' + t } : {};
     }
+
     function requireAuthOrRedirect() {
       if (!localStorage.getItem('token')) {
         window.location.href = '/login';
@@ -76,19 +77,32 @@
     }
 
     async function loadFactors() {
-      const r = await fetch('/api/factors', { headers: { 'Authorization': 'Bearer ' + token }});
-      if (r.status === 401) return (window.location.href = '/login');
-      if (!r.ok) { console.error('Failed to load factors'); return; }
+      const r = await fetch('/api/factors', { headers: authHeaders() });
+      if (r.status === 401) {
+        window.location.href = '/login';
+        return;
+      }
+      if (!r.ok) {
+        console.error('Failed to load factors');
+        return;
+      }
+
       const data = await r.json();
       const tbody = document.getElementById('factors-tbody');
       tbody.innerHTML = '';
+
+      if (!data || !data.length) {
+        tbody.innerHTML = '<tr><td colspan="5">No emission factors yet.</td></tr>';
+        return;
+      }
+
       data.forEach(f => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td>${f.category}</td>
-          <td>${f.unit}</td>
+          <td>${f.category || ''}</td>
+          <td>${f.unit || ''}</td>
           <td>${f.factor}</td>
-          <td>${f.source}</td>
+          <td>${f.source || ''}</td>
           <td>${f.year ?? ''}</td>
         `;
         tbody.appendChild(tr);
@@ -111,7 +125,10 @@
         body: JSON.stringify(payload)
       });
       const res = await r.json();
-      if (!r.ok) return alert(res.detail || 'Create failed');
+      if (!r.ok) {
+        alert(res.detail || 'Create failed');
+        return;
+      }
       form.reset();
       loadFactors();
     }
@@ -120,6 +137,7 @@
     requireAuthOrRedirect();
     loadFactors();
   </script>
+
 </body>
 </html>
 
