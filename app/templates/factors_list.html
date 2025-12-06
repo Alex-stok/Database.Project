@@ -64,7 +64,7 @@
     </section>
   </main>
 
-    <script>
+      <script>
     function authHeaders() {
       const t = localStorage.getItem('token');
       return t ? { 'Authorization': 'Bearer ' + t } : {};
@@ -77,36 +77,52 @@
     }
 
     async function loadFactors() {
-      const r = await fetch('/api/factors', { headers: authHeaders() });
-      if (r.status === 401) {
-        window.location.href = '/login';
-        return;
-      }
-      if (!r.ok) {
-        console.error('Failed to load factors');
-        return;
-      }
-
-      const data = await r.json();
       const tbody = document.getElementById('factors-tbody');
-      tbody.innerHTML = '';
+      tbody.innerHTML = '<tr><td colspan="5">Loading…</td></tr>';
 
-      if (!data || !data.length) {
-        tbody.innerHTML = '<tr><td colspan="5">No emission factors yet.</td></tr>';
-        return;
+      try {
+        const r = await fetch('/api/factors', {
+          headers: {
+            ...authHeaders(),
+            'Accept': 'application/json'
+          }
+        });
+
+        if (r.status === 401) {
+          window.location.href = '/login';
+          return;
+        }
+
+        if (!r.ok) {
+          const txt = await r.text();
+          console.error('Failed to load factors', r.status, txt);
+          tbody.innerHTML = `<tr><td colspan="5">Error loading factors (${r.status}). Check server logs.</td></tr>`;
+          return;
+        }
+
+        const data = await r.json();
+        tbody.innerHTML = '';
+
+        if (!Array.isArray(data) || !data.length) {
+          tbody.innerHTML = '<tr><td colspan="5">No emission factors yet.</td></tr>';
+          return;
+        }
+
+        data.forEach(f => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${f.category || ''}</td>
+            <td>${f.unit || ''}</td>
+            <td>${f.factor}</td>
+            <td>${f.source || ''}</td>
+            <td>${f.year ?? ''}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        console.error('Error loading factors', err);
+        tbody.innerHTML = '<tr><td colspan="5">Error loading factors (see console).</td></tr>';
       }
-
-      data.forEach(f => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${f.category || ''}</td>
-          <td>${f.unit || ''}</td>
-          <td>${f.factor}</td>
-          <td>${f.source || ''}</td>
-          <td>${f.year ?? ''}</td>
-        `;
-        tbody.appendChild(tr);
-      });
     }
 
     async function createFactor(e) {
@@ -119,24 +135,34 @@
         factor: Number(form.factor.value),
         year: form.year.value ? Number(form.year.value) : null
       };
-      const r = await fetch('/api/factors', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify(payload)
-      });
-      const res = await r.json();
-      if (!r.ok) {
-        alert(res.detail || 'Create failed');
-        return;
+
+      try {
+        const r = await fetch('/api/factors', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders() },
+          body: JSON.stringify(payload)
+        });
+        const res = await r.json();
+        if (!r.ok) {
+          alert(res.detail || 'Create failed');
+          return;
+        }
+        form.reset();
+        loadFactors();
+      } catch (err) {
+        console.error('Error creating factor', err);
+        alert('Error creating factor (see console).');
       }
-      form.reset();
-      loadFactors();
     }
 
-    document.getElementById('create-factor-form').addEventListener('submit', createFactor);
+    document
+      .getElementById('create-factor-form')
+      .addEventListener('submit', createFactor);
+
     requireAuthOrRedirect();
     loadFactors();
   </script>
+
 
 </body>
 </html>

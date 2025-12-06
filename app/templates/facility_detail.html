@@ -26,83 +26,180 @@
   </section>
 </main>
 
-<script>
-(function () {
-  const facilityId = "{{ facility_id }}";
-  const token = localStorage.getItem("token") || "";
+  <script>
+  (function () {
+    // Prefer templated id if provided; fall back to URL segment.
+    const FACILITY_ID =
+      (typeof window.FACILITY_ID !== "undefined" && window.FACILITY_ID) ||
+      window.location.pathname.split("/").pop();
 
-  const facName = document.getElementById("fac-name");
-  const facLoc  = document.getElementById("fac-loc");
-  const facId   = document.getElementById("fac-id");
-  const facGrid = document.getElementById("fac-grid");
-  const recentBox = document.getElementById("recent-activity");
+    const token = localStorage.getItem("token") || "";
 
-  function authHeaders() {
-    return token ? { "Authorization": "Bearer " + token } : {};
-  }
+    const nameEl      = document.getElementById("name");
+    const locationEl  = document.getElementById("location");
+    const gridEl      = document.getElementById("grid_region_code");
+    const msgEl       = document.getElementById("message");
+    const recentBox   = document.getElementById("recent-activity");
 
-  // -----------------------------
-  // Load facility details
-  // -----------------------------
-  async function loadFacility() {
-    try {
-      const resp = await fetch(`/api/facilities/${facilityId}`, {
-        headers: authHeaders()
-      });
-      if (!resp.ok) {
-        facName.textContent = "Facility: (Error loading)";
-        return;
-      }
-      const data = await resp.json();
-      facName.textContent = "Facility: " + (data.name || "");
-      facLoc.textContent  = "Location: " + (data.location || "");
-      facId.textContent   = "ID: " + (data.facility_id || "");
-      facGrid.textContent = "Grid Region: " + (data.grid_region_code || "");
-    } catch (err) {
-      console.error(err);
-      facName.textContent = "Facility: (Error loading)";
+    function authHeaders() {
+      return token ? { "Authorization": "Bearer " + token } : {};
     }
-  }
 
-  // -----------------------------
-  // Load activities for facility
-  // -----------------------------
-  async function loadActivities() {
-    recentBox.textContent = "Loading…";
-    try {
-      const resp = await fetch(`/api/activities?facility_id=${encodeURIComponent(facilityId)}`, {
-        headers: authHeaders()
-      });
-      if (resp.status === 401) {
-        window.location.href = "/login";
-        return;
-      }
-      if (!resp.ok) {
-        recentBox.textContent = "Error loading activities.";
-        return;
-      }
-      const data = await resp.json();
-
-      if (!data || !data.length) {
-        recentBox.textContent = "No entries yet.";
-        return;
-      }
-
-      recentBox.innerHTML = data.map(a => {
-        const dt = a.activity_date || "";
-        const qty = a.quantity ?? "";
-        const unit = a.unit || "";
-        const type = a.activity_type || "";
-        return `<div>${type} — ${qty} ${unit} on ${dt}</div>`;
-      }).join("");
-    } catch (err) {
-      console.error(err);
-      recentBox.textContent = "Error loading activities.";
+    function setMsg(text, ok = true) {
+      if (!msgEl) return;
+      msgEl.textContent = text;
+      msgEl.style.color = ok ? "green" : "crimson";
     }
-  }
 
-  loadFacility();
-  loadActivities();
-})();
-</script>
+    // -----------------------------
+    // Load facility details
+    // -----------------------------
+    async function loadFacility() {
+      try {
+        const resp = await fetch(`/api/facilities/${FACILITY_ID}`, {
+          headers: {
+            ...authHeaders(),
+            "Accept": "application/json"
+          },
+          credentials: "same-origin",
+        });
+        if (!resp.ok) {
+          const txt = await resp.text();
+          console.error("Failed to load facility", resp.status, txt);
+          setMsg("Failed to load facility.", false);
+          return;
+        }
+        const data = await resp.json();
+        if (nameEl)     nameEl.value     = data.name ?? "";
+        if (locationEl) locationEl.value = data.location ?? "";
+        if (gridEl)     gridEl.value     = data.grid_region_code ?? "";
+
+        // Also fill the read-only heading at top if present
+        const facName = document.getElementById("fac-name");
+        const facLoc  = document.getElementById("fac-loc");
+        const facId   = document.getElementById("fac-id");
+        const facGrid = document.getElementById("fac-grid");
+        if (facName) facName.textContent = "Facility: " + (data.name || "");
+        if (facLoc)  facLoc.textContent  = "Location: " + (data.location || "");
+        if (facId)   facId.textContent   = "ID: " + (data.facility_id || "");
+        if (facGrid) facGrid.textContent = "Grid Region: " + (data.grid_region_code || "");
+      } catch (err) {
+        console.error("Error loading facility", err);
+        setMsg("Error loading facility.", false);
+      }
+    }
+
+    // -----------------------------
+    // Load activities for this facility
+    // -----------------------------
+    async function loadActivities() {
+      if (!recentBox) return;
+      recentBox.textContent = "Loading…";
+
+      try {
+        const resp = await fetch(
+          `/api/activities?facility_id=${encodeURIComponent(FACILITY_ID)}`,
+          {
+            headers: {
+              ...authHeaders(),
+              "Accept": "application/json"
+            },
+            credentials: "same-origin",
+          }
+        );
+
+        if (!resp.ok) {
+          const txt = await resp.text();
+          console.error("Failed to load activities", resp.status, txt);
+          recentBox.textContent = `Error loading activities (${resp.status}). See console.`;
+          return;
+        }
+
+        const data = await resp.json();
+        if (!Array.isArray(data) || !data.length) {
+          recentBox.textContent = "No entries yet.";
+          return;
+        }
+
+        // Render as a simple list for now; you can change this to a table if you prefer
+        recentBox.innerHTML = data.map(a => {
+          const type = a.activity_type || "";
+          const qty  = a.quantity ?? "";
+          const unit = a.unit || "";
+          const date = a.activity_date || "";
+          return `<div>${type} — ${qty} ${unit} on ${date}</div>`;
+        }).join("");
+      } catch (err) {
+        console.error("Error loading activities", err);
+        recentBox.textContent = "Error loading activities (see console).";
+      }
+    }
+
+    // -----------------------------
+    // Save and delete facility (existing behaviour)
+    // -----------------------------
+    async function saveFacility(ev) {
+      ev.preventDefault();
+      setMsg("");
+      const payload = {
+        name: (nameEl?.value || "").trim(),
+        location: (locationEl?.value || "").trim(),
+        grid_region_code: (gridEl?.value || "").trim(),
+      };
+      try {
+        const resp = await fetch(`/api/facilities/${FACILITY_ID}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeaders(),
+          },
+          credentials: "same-origin",
+          body: JSON.stringify(payload),
+        });
+        if (!resp.ok) {
+          const t = await resp.text();
+          setMsg(`Save failed: ${t}`, false);
+          return;
+        }
+        setMsg("Saved.");
+      } catch (err) {
+        console.error(err);
+        setMsg("Error saving.", false);
+      }
+    }
+
+    async function deleteFacility() {
+      if (!confirm("Delete this facility?")) return;
+      try {
+        const resp = await fetch(`/api/facilities/${FACILITY_ID}`, {
+          method: "DELETE",
+          headers: authHeaders(),
+          credentials: "same-origin",
+        });
+        if (!resp.ok) {
+          const t = await resp.text();
+          setMsg(`Delete failed: ${t}`, false);
+          return;
+        }
+        window.location.href = "/facilities";
+      } catch (err) {
+        console.error(err);
+        setMsg("Error deleting.", false);
+      }
+    }
+
+    const facilityForm = document.getElementById("facility-form");
+    if (facilityForm) {
+      facilityForm.addEventListener("submit", saveFacility);
+    }
+    const deleteBtn = document.getElementById("delete-btn");
+    if (deleteBtn) {
+      deleteBtn.addEventListener("click", deleteFacility);
+    }
+
+    loadFacility();
+    loadActivities();
+  })();
+  </script>
+
 {% endblock %}
