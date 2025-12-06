@@ -1,7 +1,7 @@
 # app/Routers/planner.py
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, Request, HTTPException, Query
+from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -21,8 +21,9 @@ def planner_page(request: Request, user=Depends(get_current_user)):
         {"request": request},
     )
 
+
 # ----------------------------
-# Action library management
+# Action library
 # ----------------------------
 @router.get("/library")
 def get_library(db: Session = Depends(get_db)):
@@ -48,6 +49,7 @@ def add_action(
     db.refresh(a)
     return {"created": True, "id": a.action_id}
 
+
 # ----------------------------
 # Apply an action to org/facility
 # ----------------------------
@@ -68,7 +70,6 @@ def apply_action(
         if not fac:
             raise HTTPException(403, "Invalid facility")
 
-    # currently red_pct not used directly; we still accept it so payload stays flexible
     red_pct = Decimal(str(payload.get("estimated_reduction_pct", 0))) / Decimal("100")
     capex = Decimal(str(payload.get("capex_usd", 0)))
 
@@ -85,10 +86,10 @@ def apply_action(
     db.commit()
     return {"applied": True}
 
+
 # ----------------------------
 # Planner evaluation endpoint
 # ----------------------------
-
 @router.post("/evaluate")
 def evaluate_plan(
     payload: dict,
@@ -106,7 +107,7 @@ def evaluate_plan(
     }
     """
 
-    # Read slider values (default to 0 if missing)
+    # Slider values (default 0 if missing)
     led = float(payload.get("led_retrofit_pct", 0) or 0.0)
     solar = float(payload.get("solar_share_pct", 0) or 0.0)
     fleet = float(payload.get("fleet_hybrid_pct", 0) or 0.0)
@@ -119,19 +120,17 @@ def evaluate_plan(
         .scalar()
     )
 
-    # Very simple toy model:
-    #   LED retrofits -> 10% of their slider value
-    #   Solar share   -> 50% of slider value
-    #   Fleet hybrid  -> 30% of slider value
+    baseline = float(baseline_co2e)
+
+    # Toy model: how strongly each slider affects reductions
     reduction_fraction = (
-        (led / 100.0) * 0.10 +
-        (solar / 100.0) * 0.50 +
-        (fleet / 100.0) * 0.30
+        (led / 100.0) * 0.10 +   # LED retrofits
+        (solar / 100.0) * 0.50 + # Solar share
+        (fleet / 100.0) * 0.30   # Fleet hybridization
     )
     if reduction_fraction > 1.0:
         reduction_fraction = 1.0
 
-    baseline = float(baseline_co2e)
     reduction_kg = baseline * reduction_fraction
     projected_kg = baseline - reduction_kg
 
@@ -146,12 +145,3 @@ def evaluate_plan(
         "estimated_reduction_kg": reduction_kg,
         "projected_emissions_kg": projected_kg,
     }
-
-
-@router.get("/evaluate")
-def evaluate_help():
-    """
-    Convenience endpoint so visiting /api/planner/evaluate in the browser
-    doesn't 404. The real logic is the POST above.
-    """
-    return {"message": "POST JSON to /api/planner/evaluate to evaluate a plan."}
